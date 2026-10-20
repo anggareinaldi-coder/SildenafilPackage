@@ -363,9 +363,29 @@ if semua_data_gabungan:
                 "asm": info["ASM"]
             })
 
+        latest_dt = None
+        for item in list_data_peta:
+            ts = item["timestamp"]
+            for fmt in ("%Y-%m-%d %H:%M:%S", "%Y-%m-%d %H:%M", "%d/%m/%Y %H:%M:%S", "%d/%m/%Y %H:%M", "%Y-%m-%d"):
+                try:
+                    parsed = datetime.strptime(str(ts).strip(), fmt)
+                    if latest_dt is None or parsed > latest_dt:
+                        latest_dt = parsed
+                    break
+                except ValueError:
+                    continue
+
+        if latest_dt:
+            months_en = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+            m_str = months_en[latest_dt.month - 1]
+            last_update_str = f"{latest_dt.strftime('%d')} {m_str} {latest_dt.strftime('%Y - %H:%M')}"
+        else:
+            last_update_str = "-"
+
         payload_data = {
             "surveyData": list_data_peta,
-            "masterSurveyor": master_list_json
+            "masterSurveyor": master_list_json,
+            "lastUpdate": last_update_str
         }
         data_json = json.dumps(payload_data)
 
@@ -444,7 +464,7 @@ if semua_data_gabungan:
 </head>
 <body>
     <header>
-        <h1>🗺️ Sildenafil Package Dashboard</h1>
+        <h1>🗺️ Sildenafil Package Dashboard <span style="font-size: 11px; font-weight: normal; color: #64748b; margin-left: 12px; background: #f8fafc; padding: 4px 8px; border: 1px solid #cbd5e1; border-radius: 4px;">🕒 Last Update: <span id="lastUpdateSpan"></span></span></h1>
         <div class="nav-buttons">
             <button id="btnTableView" class="nav-btn active" onclick="switchView('table')">📊 Tabel Target vs Actual</button>
             <button id="btnMapView" class="nav-btn" onclick="switchView('map')">📍 Visualisasi Sebaran Titik Distribusi</button>
@@ -1073,6 +1093,8 @@ if semua_data_gabungan:
 
         window.onload = function() {
             initTableFilters();
+            const luEl = document.getElementById('lastUpdateSpan');
+            if (luEl) luEl.innerText = rawPayload.lastUpdate || '-';
         };
     </script>
 </body>
@@ -1116,7 +1138,7 @@ if semua_data_gabungan:
                 git_path = "git"
 
             subprocess.run(f'"{git_path}" add .', cwd=BASE_DIR, shell=True, check=True)
-            subprocess.run(f'"{git_path}" commit -m "Auto-update dynamic filtered Excel download dan tabel ordering pada {waktu_sekarang}"', cwd=BASE_DIR, shell=True, check=True)
+            subprocess.run(f'"{git_path}" commit -m "Auto-update last update timestamp pada {waktu_sekarang}"', cwd=BASE_DIR, shell=True, check=True)
             subprocess.run(f'"{git_path}" push', cwd=BASE_DIR, shell=True, check=True)
             print("[SUKSES] Perubahan berhasil di-push otomatis ke GitHub! 🎉")
         except subprocess.CalledProcessError as git_err:
