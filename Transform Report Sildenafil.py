@@ -58,7 +58,6 @@ total_foto_gagal = 0
 total_tanpa_foto = 0
 total_duplikat_dibuang = 0
 
-# Set untuk mendeteksi duplikat murni (Timestamp + Surveyor ID + Surveyor Name + Surveyee ID + Surveyee Name)
 seen_exact_rows = set()
 
 for nama_file_excel in files_in_source:
@@ -110,7 +109,6 @@ for nama_file_excel in files_in_source:
         surveyee_id_str = str(surveyee_id).strip()
         surveyee_str = str(surveyee).strip()
 
-        # Aturan 2: Cek apakah baris ini duplikat murni (Timestamp, Surveyor ID, Surveyor Name, Surveyee ID, Surveyee Name sama persis)
         exact_row_signature = (timestamp_str, surveyor_id_str, surveyor_str, surveyee_id_str, surveyee_str)
         if exact_row_signature in seen_exact_rows:
             total_duplikat_dibuang += 1
@@ -125,7 +123,7 @@ for nama_file_excel in files_in_source:
                 "Surveyee / Outlet": surveyee_str,
                 "Status Baris": "DIHAPUS (Duplikat Identik)",
                 "Status Foto": "-",
-                "Path / Keterangan": "Baris duplikat murni (timestamp & surveyor/outlet identik) dihapus"
+                "Path / Keterangan": "Baris duplikat murni dihapus"
             })
             continue
         
@@ -212,7 +210,6 @@ for nama_file_excel in files_in_source:
             status_foto_log = "TIDAK ADA FOTO"
             keterangan_foto_log = "Tidak ada objek gambar pada baris ini"
 
-        # Aturan 1: Waktu berbeda / kunjungan berbeda ke outlet yang sama -> Digabung & Qty dijumlahkan
         outlet_key = (surveyor_id_str, surveyor_str, surveyee_id_str, surveyee_str)
 
         if outlet_key in outlet_aggregated_data:
@@ -241,7 +238,7 @@ for nama_file_excel in files_in_source:
                 "Surveyee / Outlet": surveyee_str,
                 "Status Baris": "DIGABUNG (Akumulasi Qty Waktu Berbeda)",
                 "Status Foto": status_foto_log,
-                "Path / Keterangan": f"Outlet & Surveyor sama, Qty digabung jadi {outlet_aggregated_data[outlet_key]['qty']}"
+                "Path / Keterangan": f"Qty digabung jadi {outlet_aggregated_data[outlet_key]['qty']}"
             })
         else:
             outlet_aggregated_data[outlet_key] = {
@@ -272,7 +269,6 @@ for nama_file_excel in files_in_source:
             })
 
 print(f"Total outlet unik setelah agregasi: {len(outlet_aggregated_data)} outlet")
-print("=== Menghasilkan Dashboard Unified (Cascading Table + Visualisasi Sebaran) ===")
 
 semua_data_gabungan = []
 list_data_peta = []
@@ -381,6 +377,7 @@ if semua_data_gabungan:
     <title>Dashboard Sildenafil Package - Performance & GIS Map</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     <style>
         * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
         html, body { height: 100%; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f1f5f9; color: #1e293b; }
@@ -487,8 +484,9 @@ if semua_data_gabungan:
                             <option value="ALL">-- Semua Surveyor --</option>
                         </select>
                     </div>
-                    <div style="display: flex; align-items: flex-end;">
+                    <div style="display: flex; align-items: flex-end; gap: 8px;">
                         <button onclick="resetTableFilters()" style="padding: 8px 14px; background: #cbd5e1; border: none; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer;">Reset Filter</button>
+                        <button onclick="downloadFilteredExcel()" style="padding: 8px 14px; background: #059669; color: white; border: none; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 6px;">📥 Unduh Excel Sesuai Filter</button>
                     </div>
                 </div>
 
@@ -561,6 +559,9 @@ if semua_data_gabungan:
                         <select id="mapOutletFilter" onchange="onMapOutletChange()">
                             <option value="ALL">-- Semua Outlet --</option>
                         </select>
+                    </div>
+                    <div>
+                        <button onclick="resetMapFilters()" style="width: 100%; padding: 7px 10px; background: #cbd5e1; border: none; border-radius: 6px; font-size: 11px; font-weight: 600; cursor: pointer;">Reset Filter Peta</button>
                     </div>
                     <div style="background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%); padding: 10px; border-radius: 8px; color: white;">
                         <h3 style="margin: 0 0 2px 0; font-size: 10px; text-transform: uppercase;">Total Titik Sebaran Peta</h3>
@@ -918,6 +919,18 @@ if semua_data_gabungan:
             );
         }
 
+        function resetMapFilters() {
+            document.getElementById('mapRegionFilter').value = 'ALL';
+            document.getElementById('mapAsmFilter').value = 'ALL';
+            document.getElementById('mapSurveyorFilter').value = 'ALL';
+            document.getElementById('mapOutletFilter').value = 'ALL';
+
+            populateMapAsmDropdown(surveyData);
+            populateMapSurveyorDropdown(surveyData);
+            populateMapOutletDropdown(surveyData);
+            renderMapDashboard('ALL', 'ALL', 'ALL', 'ALL');
+        }
+
         function renderMapDashboard(reg, asm, srv, out) {
             const listContainer = document.getElementById('outletListContainer');
             listContainer.innerHTML = '';
@@ -978,6 +991,68 @@ if semua_data_gabungan:
             return marker;
         }
 
+        function downloadFilteredExcel() {
+            const regVal = document.getElementById('tableRegionFilter').value;
+            const asmVal = document.getElementById('tableAsmFilter').value;
+            const posVal = document.getElementById('tablePositionFilter').value;
+            const srvVal = document.getElementById('tableSurveyorFilter').value;
+
+            let filteredMasters = masterSurveyor.filter(m => {
+                if (regVal && regVal !== 'ALL' && m.region !== regVal) return false;
+                if (asmVal && asmVal !== 'ALL' && m.asm !== asmVal) return false;
+                if (posVal && posVal !== 'ALL' && m.position.toUpperCase() !== posVal.toUpperCase()) return false;
+                if (srvVal && srvVal !== 'ALL' && m.surveyor !== srvVal) return false;
+                return true;
+            });
+
+            const filteredSurveyorIds = new Set(filteredMasters.map(m => m.surveyor_id));
+            let exportData = surveyData.filter(item => filteredSurveyorIds.has(item.surveyor_id));
+
+            let rowsToExport = exportData.map(item => {
+                let mInfo = masterSurveyor.find(m => m.surveyor_id === item.surveyor_id) || {};
+                return {
+                    "Timestamp": item.timestamp,
+                    "Surveyor ID": item.surveyor_id,
+                    "Surveyor Name": item.surveyor,
+                    "Surveyee ID": item.surveyee_id,
+                    "Surveyee Name": item.surveyee,
+                    "Position": mInfo.position || "-",
+                    "Region": mInfo.region || "-",
+                    "ASM": mInfo.asm || "-",
+                    "Latitude": item.lat !== null ? item.lat : "-",
+                    "Longitude": item.lon !== null ? item.lon : "-",
+                    "Qty": item.qty,
+                    "Foto List": item.foto_list ? item.foto_list.join(", ") : "-"
+                };
+            });
+
+            if (rowsToExport.length === 0) {
+                alert("Tidak ada data yang sesuai dengan filter yang dipilih.");
+                return;
+            }
+
+            let now = new Date();
+            let yyyy = now.getFullYear();
+            let mm = String(now.getMonth() + 1).padStart(2, '0');
+            let dd = String(now.getDate()).padStart(2, '0');
+            let hh = String(now.getHours()).padStart(2, '0');
+            let min = String(now.getMinutes()).padStart(2, '0');
+            let ss = String(now.getSeconds()).padStart(2, '0');
+            let timestampStr = `${yyyy}${mm}${dd}_${hh}${min}${ss}`;
+
+            let regionPart = (regVal && regVal !== 'ALL') ? regVal : 'Nasional';
+            let asmPart = (asmVal && asmVal !== 'ALL') ? asmVal : 'SemuaASM';
+            let srvPart = (srvVal && srvVal !== 'ALL') ? srvVal : 'SemuaSurveyor';
+
+            let filename = `${regionPart} - ${asmPart} - ${srvPart} - ${timestampStr}.xlsx`;
+
+            const worksheet = XLSX.utils.json_to_sheet(rowsToExport);
+            const workbook = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(workbook, worksheet, "Filtered Report");
+
+            XLSX.writeFile(workbook, filename);
+        }
+
         window.onload = function() {
             initTableFilters();
         };
@@ -1023,7 +1098,7 @@ if semua_data_gabungan:
                 git_path = "git"
 
             subprocess.run(f'"{git_path}" add .', cwd=BASE_DIR, shell=True, check=True)
-            subprocess.run(f'"{git_path}" commit -m "Auto-update exact duplicate removal and time aggregation pada {waktu_sekarang}"', cwd=BASE_DIR, shell=True, check=True)
+            subprocess.run(f'"{git_path}" commit -m "Auto-update dynamic filtered Excel download pada {waktu_sekarang}"', cwd=BASE_DIR, shell=True, check=True)
             subprocess.run(f'"{git_path}" push', cwd=BASE_DIR, shell=True, check=True)
             print("[SUKSES] Perubahan berhasil di-push otomatis ke GitHub! 🎉")
         except subprocess.CalledProcessError as git_err:
