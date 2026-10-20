@@ -191,14 +191,17 @@ for nama_file_excel in files_in_source:
         if outlet_key in outlet_aggregated_data:
             total_baris_digabung += 1
             existing_qty = outlet_aggregated_data[outlet_key]["qty_numeric"]
-            new_qty = existing_qty + row_qty
+            new_qty = max(existing_qty, row_qty) if row_qty > 0 else existing_qty
             outlet_aggregated_data[outlet_key]["qty_numeric"] = new_qty
             outlet_aggregated_data[outlet_key]["qty"] = int(new_qty) if new_qty.is_integer() else new_qty
             
             if path_simpan_relatif_list:
-                outlet_aggregated_data[outlet_key]["foto_list"].extend(path_simpan_relatif_list)
+                for p in path_simpan_relatif_list:
+                    if p not in outlet_aggregated_data[outlet_key]["foto_list"]:
+                        outlet_aggregated_data[outlet_key]["foto_list"].append(p)
             
-            outlet_aggregated_data[outlet_key]["timestamp"] = f"{outlet_aggregated_data[outlet_key]['timestamp']}, {timestamp_str}"
+            if timestamp_str not in outlet_aggregated_data[outlet_key]["timestamp"]:
+                outlet_aggregated_data[outlet_key]["timestamp"] = f"{outlet_aggregated_data[outlet_key]['timestamp']}, {timestamp_str}"
 
             list_log_detail.append({
                 "Waktu Eksekusi": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
@@ -254,6 +257,7 @@ for k, v in outlet_aggregated_data.items():
     asm = MASTER_SURVEYOR.get(sid, {}).get("ASM", "-")
 
     if v["lat"] is not None and v["lon"] is not None:
+        pos = MASTER_SURVEYOR.get(sid, {}).get("Position", "-")
         list_data_peta.append({
             "lat": v["lat"],
             "lon": v["lon"],
@@ -264,6 +268,7 @@ for k, v in outlet_aggregated_data.items():
             "surveyee_id": v["surveyee_id"],
             "region": reg,
             "asm": asm,
+            "position": pos,
             "qty": v["qty"],
             "foto_list": v["foto_list"]
         })
@@ -327,7 +332,7 @@ if semua_data_gabungan:
         df_log.to_excel(FILE_LOG, index=False)
         data_json = json.dumps(list_data_peta)
 
-        multilayer_dashboard_html = f"""<!DOCTYPE html>
+        html_template = """<!DOCTYPE html>
 <html lang="id">
 <head>
     <meta charset="UTF-8">
@@ -336,36 +341,36 @@ if semua_data_gabungan:
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <style>
-        * {{ box-sizing: border-box; -webkit-tap-highlight-color: transparent; }}
-        html, body {{ height: 100%; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f1f5f9; color: #1e293b; overflow: hidden; }}
-        header {{ height: 55px; background-color: #ffffff; color: #0f172a; padding: 0 15px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #cbd5e1; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); z-index: 2000; position: relative; }}
-        header h1 {{ margin: 0; font-size: 15px; font-weight: 600; display: flex; align-items: center; gap: 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }}
-        .header-badge {{ background: #2563eb; color: white; padding: 4px 10px; border-radius: 6px; font-size: 11px; font-weight: 600; white-space: nowrap; }}
-        .main-container {{ display: flex; height: calc(100vh - 55px); width: 100vw; position: relative; }}
-        .sidebar {{ width: 380px; background-color: #ffffff; border-right: 1px solid #cbd5e1; display: flex; flex-direction: column; padding: 15px; gap: 10px; z-index: 1000; box-shadow: 4px 0 15px rgba(0,0,0,0.05); overflow-y: auto; }}
-        .filter-group {{ display: flex; flex-direction: column; gap: 3px; }}
-        .filter-group label {{ font-size: 11px; font-weight: 600; color: #64748b; }}
-        .filter-group select {{ padding: 7px 10px; border-radius: 6px; border: 1px solid #cbd5e1; background-color: #f8fafc; color: #1e293b; font-size: 12px; outline: none; }}
-        .stats-box {{ background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%); padding: 10px; border-radius: 8px; color: white; box-shadow: 0 4px 12px rgba(37, 99, 235, 0.2); }}
-        .stats-box h3 {{ margin: 0 0 2px 0; font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px; opacity: 0.9; }}
-        .stats-box .val {{ font-size: 18px; font-weight: bold; }}
-        .outlet-list {{ flex: 1; min-height: 150px; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; padding-right: 2px; }}
-        .outlet-item {{ background-color: #f8fafc; border: 1px solid #cbd5e1; padding: 8px 10px; border-radius: 6px; cursor: pointer; transition: all 0.2s ease; }}
-        .outlet-item:hover {{ border-color: #2563eb; background-color: #eff6ff; }}
-        .outlet-item.active {{ border-color: #2563eb; background-color: #dbeafe; }}
-        .outlet-name {{ font-weight: 600; font-size: 12px; color: #0f172a; margin-bottom: 2px; }}
-        .outlet-info {{ font-size: 11px; color: #64748b; display: flex; justify-content: space-between; }}
-        #map {{ flex: 1; height: 100%; width: 100%; z-index: 1; }}
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+        html, body { height: 100%; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f1f5f9; color: #1e293b; overflow: hidden; }
+        header { height: 55px; background-color: #ffffff; color: #0f172a; padding: 0 15px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #cbd5e1; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); z-index: 2000; position: relative; }
+        header h1 { margin: 0; font-size: 15px; font-weight: 600; display: flex; align-items: center; gap: 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .header-badge { background: #2563eb; color: white; padding: 4px 10px; border-radius: 6px; font-size: 11px; font-weight: 600; white-space: nowrap; }
+        .main-container { display: flex; height: calc(100vh - 55px); width: 100vw; position: relative; }
+        .sidebar { width: 380px; background-color: #ffffff; border-right: 1px solid #cbd5e1; display: flex; flex-direction: column; padding: 15px; gap: 10px; z-index: 1000; box-shadow: 4px 0 15px rgba(0,0,0,0.05); overflow-y: auto; }
+        .filter-group { display: flex; flex-direction: column; gap: 3px; }
+        .filter-group label { font-size: 11px; font-weight: 600; color: #64748b; }
+        .filter-group select { padding: 7px 10px; border-radius: 6px; border: 1px solid #cbd5e1; background-color: #f8fafc; color: #1e293b; font-size: 12px; outline: none; }
+        .stats-box { background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%); padding: 10px; border-radius: 8px; color: white; box-shadow: 0 4px 12px rgba(37, 99, 235, 0.2); }
+        .stats-box h3 { margin: 0 0 2px 0; font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px; opacity: 0.9; }
+        .stats-box .val { font-size: 18px; font-weight: bold; }
+        .outlet-list { flex: 1; min-height: 150px; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; padding-right: 2px; }
+        .outlet-item { background-color: #f8fafc; border: 1px solid #cbd5e1; padding: 8px 10px; border-radius: 6px; cursor: pointer; transition: all 0.2s ease; }
+        .outlet-item:hover { border-color: #2563eb; background-color: #eff6ff; }
+        .outlet-item.active { border-color: #2563eb; background-color: #dbeafe; }
+        .outlet-name { font-weight: 600; font-size: 12px; color: #0f172a; margin-bottom: 2px; }
+        .outlet-info { font-size: 11px; color: #64748b; display: flex; justify-content: space-between; }
+        #map { flex: 1; height: 100%; width: 100%; z-index: 1; }
 
-        @media (max-width: 768px) {{
-            .main-container {{ flex-direction: column-reverse; height: calc(100vh - 55px); }}
-            .sidebar {{ width: 100%; height: 45%; max-height: 250px; padding: 10px; gap: 6px; border-right: none; border-top: 1px solid #cbd5e1; }}
-            #map {{ height: 55% !important; width: 100% !important; }}
-            header h1 {{ font-size: 13px; }}
-        }}
-        ::-webkit-scrollbar {{ width: 5px; }}
-        ::-webkit-scrollbar-track {{ background: #f1f5f9; }}
-        ::-webkit-scrollbar-thumb {{ background: #cbd5e1; border-radius: 3px; }}
+        @media (max-width: 768px) {
+            .main-container { flex-direction: column-reverse; height: calc(100vh - 55px); }
+            .sidebar { width: 100%; height: 45%; max-height: 250px; padding: 10px; gap: 6px; border-right: none; border-top: 1px solid #cbd5e1; }
+            #map { height: 55% !important; width: 100% !important; }
+            header h1 { font-size: 13px; }
+        }
+        ::-webkit-scrollbar { width: 5px; }
+        ::-webkit-scrollbar-track { background: #f1f5f9; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
     </style>
 </head>
 <body>
@@ -403,130 +408,136 @@ if semua_data_gabungan:
                 <h3>Total Distribusi Sildenafil Package</h3>
                 <div id="totalOutletStat" class="val">0</div>
             </div>
+            <div style="background: #ffffff; border: 1px solid #cbd5e1; border-radius: 8px; padding: 10px; font-size: 11px;">
+                <div style="font-weight: 600; color: #0f172a; margin-bottom: 6px; border-bottom: 1px solid #e2e8f0; padding-bottom: 4px;">📊 Alokasi vs Realisasi</div>
+                <div id="allocationSummaryContainer" style="display: flex; flex-direction: column; gap: 4px;">
+                    <!-- Diisi via Javascript -->
+                </div>
+            </div>
             <div style="font-size: 11px; font-weight: 600; color: #64748b;">Daftar Outlet Terfilter:</div>
             <div id="outletListContainer" class="outlet-list"></div>
         </div>
         <div id="map"></div>
     </div>
     <script>
-        const surveyData = {data_json};
-        let surveyorColorMap = {{}};
+        const surveyData = __DATA_JSON_PLACEHOLDER__;
+        let surveyorColorMap = {};
         let map, markersLayer;
 
-        function initDashboard() {{
+        function initDashboard() {
             populateRegionDropdown();
             populateAsmDropdown(surveyData);
             populateSurveyorDropdown(surveyData);
             populateOutletDropdown(surveyData);
             initMap();
             renderDashboard('ALL', 'ALL', 'ALL', 'ALL');
-        }}
+        }
 
-        function populateRegionDropdown() {{
+        function populateRegionDropdown() {
             const select = document.getElementById('regionFilter');
             const regions = [...new Set(surveyData.map(item => item.region))].sort();
-            regions.forEach(r => {{
-                if(r && r !== '-') {{
+            regions.forEach(r => {
+                if(r && r !== '-') {
                     const opt = document.createElement('option');
                     opt.value = r;
                     opt.textContent = r;
                     select.appendChild(opt);
-                }}
-            }});
-        }}
+                }
+            });
+        }
 
-        function populateAsmDropdown(dataList) {{
+        function populateAsmDropdown(dataList) {
             const select = document.getElementById('asmFilter');
             const currentVal = select.value;
             select.innerHTML = '<option value="ALL">-- Semua ASM --</option>';
             const asms = [...new Set(dataList.map(item => item.asm))].sort();
-            asms.forEach(a => {{
-                if(a && a !== '-') {{
+            asms.forEach(a => {
+                if(a && a !== '-') {
                     const opt = document.createElement('option');
                     opt.value = a;
                     opt.textContent = a;
                     select.appendChild(opt);
-                }}
-            }});
+                }
+            });
             select.value = asms.includes(currentVal) ? currentVal : 'ALL';
-        }}
+        }
 
-        function populateSurveyorDropdown(dataList) {{
+        function populateSurveyorDropdown(dataList) {
             const select = document.getElementById('surveyorFilter');
             const currentVal = select.value;
             select.innerHTML = '<option value="ALL">-- Semua Surveyor --</option>';
             const surveyors = [...new Set(dataList.map(item => item.surveyor))].sort();
-            surveyors.forEach(s => {{
-                if(s && s !== '-') {{
+            surveyors.forEach(s => {
+                if(s && s !== '-') {
                     const opt = document.createElement('option');
                     opt.value = s;
                     opt.textContent = s;
                     select.appendChild(opt);
-                }}
-            }});
+                }
+            });
             select.value = surveyors.includes(currentVal) ? currentVal : 'ALL';
 
             const palette = ['#2563eb', '#dc2626', '#059669', '#d97706', '#7c3aed', '#db2777', '#0891b2', '#4f46e5', '#ca8a04', '#65a30d'];
-            surveyors.forEach((s, idx) => {{ surveyorColorMap[s] = palette[idx % palette.length]; }});
-        }}
+            surveyors.forEach((s, idx) => { surveyorColorMap[s] = palette[idx % palette.length]; });
+        }
 
-        function populateOutletDropdown(dataList) {{
+        function populateOutletDropdown(dataList) {
             const select = document.getElementById('outletFilter');
             const currentVal = select.value;
             select.innerHTML = '<option value="ALL">-- Semua Outlet --</option>';
             const outlets = [...new Set(dataList.map(item => item.surveyee))].sort();
-            outlets.forEach(o => {{
-                if(o && o !== '-') {{
+            outlets.forEach(o => {
+                if(o && o !== '-') {
                     const opt = document.createElement('option');
                     opt.value = o;
                     opt.textContent = o;
                     select.appendChild(opt);
-                }}
-            }});
+                }
+            });
             select.value = outlets.includes(currentVal) ? currentVal : 'ALL';
-        }}
+        }
 
-        function initMap() {{
-            map = L.map('map', {{ center: [-2.5489, 118.0149], zoom: 5, tap: true }});
+        function initMap() {
+            map = L.map('map', { center: [-2.5489, 118.0149], zoom: 5, tap: true });
             
-            const osmStandard = L.tileLayer('https://{{s}}.tile.openstreetmap.org/{{z}}/{{x}}/{{y}}.png', {{ maxZoom: 19, attribution: '&copy; OpenStreetMap contributors' }});
-            const osmDe = L.tileLayer('https://tile.openstreetmap.de/tiles/osmde/{{z}}/{{x}}/{{y}}.png', {{ maxZoom: 18, attribution: '&copy; OpenStreetMap' }});
-            const esriStreet = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{{z}}/{{y}}/{{x}}', {{ maxZoom: 19, attribution: 'Tiles &copy; Esri' }});
+            const osmStandard = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '&copy; OpenStreetMap contributors' });
+            const osmDe = L.tileLayer('https://tile.openstreetmap.de/tiles/osmde/{z}/{x}/{y}.png', { maxZoom: 18, attribution: '&copy; OpenStreetMap' });
+            const esriStreet = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}', { maxZoom: 19, attribution: 'Tiles &copy; Esri' });
 
             osmStandard.addTo(map);
 
-            L.control.layers({{
+            L.control.layers({
                 "OpenStreetMap (Detail Toko/Sekolah)": osmStandard,
                 "OSM De": osmDe,
                 "Esri Street": esriStreet
-            }}).addTo(map);
+            }).addTo(map);
 
             markersLayer = L.layerGroup().addTo(map);
 
-            setTimeout(function() {{
+            setTimeout(function() {
                 map.invalidateSize();
-            }}, 300);
+            }, 300);
 
-            window.addEventListener('resize', function() {{
-                setTimeout(function() {{ map.invalidateSize(); }}, 200);
-            }});
-        }}
+            window.addEventListener('resize', function() {
+                setTimeout(function() { map.invalidateSize(); }, 200);
+            });
+        }
 
-        function getFilteredSubset(region, asm, surveyor) {{
+        function getFilteredSubset(region, asm, surveyor) {
             let subset = surveyData;
-            if (region && region !== 'ALL') {{
+            if (region && region !== 'ALL') {
                 subset = subset.filter(item => item.region === region);
-            }}
-            if (asm && asm !== 'ALL') {{
+            }
+            if (asm && asm !== 'ALL') {
                 subset = subset.filter(item => item.asm === asm);
-            }}
-            if (surveyor && surveyor !== 'ALL') {{
+            }
+            if (surveyor && surveyor !== 'ALL') {
                 subset = subset.filter(item => item.surveyor === surveyor);
-            }}
+            }
             return subset;
-        }}
+        }
 
-        function onRegionChange() {{
+        function onRegionChange() {
             const reg = document.getElementById('regionFilter').value;
             const asm = document.getElementById('asmFilter').value;
             const srv = document.getElementById('surveyorFilter').value;
@@ -541,9 +552,9 @@ if semua_data_gabungan:
             populateOutletDropdown(outSubset);
 
             renderDashboard(reg, document.getElementById('asmFilter').value, document.getElementById('surveyorFilter').value, 'ALL');
-        }}
+        }
 
-        function onAsmChange() {{
+        function onAsmChange() {
             const reg = document.getElementById('regionFilter').value;
             const asm = document.getElementById('asmFilter').value;
             const srv = document.getElementById('surveyorFilter').value;
@@ -555,9 +566,9 @@ if semua_data_gabungan:
             populateOutletDropdown(outSubset);
 
             renderDashboard(reg, asm, document.getElementById('surveyorFilter').value, 'ALL');
-        }}
+        }
 
-        function onSurveyorChange() {{
+        function onSurveyorChange() {
             const reg = document.getElementById('regionFilter').value;
             const asm = document.getElementById('asmFilter').value;
             const srv = document.getElementById('surveyorFilter').value;
@@ -566,17 +577,17 @@ if semua_data_gabungan:
             populateOutletDropdown(outSubset);
 
             renderDashboard(reg, asm, srv, 'ALL');
-        }}
+        }
 
-        function onOutletChange() {{
+        function onOutletChange() {
             const reg = document.getElementById('regionFilter').value;
             const asm = document.getElementById('asmFilter').value;
             const srv = document.getElementById('surveyorFilter').value;
             const out = document.getElementById('outletFilter').value;
             renderDashboard(reg, asm, srv, out);
-        }}
+        }
 
-        function renderDashboard(reg, asm, srv, out) {{
+        function renderDashboard(reg, asm, srv, out) {
             const listContainer = document.getElementById('outletListContainer');
             listContainer.innerHTML = '';
             markersLayer.clearLayers();
@@ -590,8 +601,47 @@ if semua_data_gabungan:
             document.getElementById('totalOutletStat').innerText = filteredData.length;
             document.getElementById('counterBadge').innerText = filteredData.length + ' Outlet';
 
+            // Hitung dan tampilkan Alokasi vs Realisasi Qty & Customer (Unique) per Role/Position
+            const pkgAllocations = { "SBD": 600, "MSD": 200, "ASM": 40, "TSS": 20 };
+            const custAllocations = { "SBD": 300, "MSD": 100, "ASM": 4, "TSS": 2 };
+            
+            const actualQtyMap = { "SBD": 0, "MSD": 0, "ASM": 0, "TSS": 0 };
+            const actualCustSets = { "SBD": new Set(), "MSD": new Set(), "ASM": new Set(), "TSS": new Set() };
+
+            filteredData.forEach(item => {
+                let pos = (item.position || "").toUpperCase().trim();
+                let q = typeof item.qty === 'number' ? item.qty : parseFloat(item.qty) || 0;
+                if (actualQtyMap.hasOwnProperty(pos)) {
+                    actualQtyMap[pos] += q;
+                    if (item.surveyee_id) {
+                        actualCustSets[pos].add(item.surveyee_id);
+                    }
+                }
+            });
+
+            let allocHtml = '<div style="display:flex; flex-direction:column; gap:6px;">';
+            for (let role in pkgAllocations) {
+                let pkgTarget = pkgAllocations[role];
+                let pkgActual = actualQtyMap[role] || 0;
+                let pkgPct = pkgTarget > 0 ? ((pkgActual / pkgTarget) * 100).toFixed(1) : "0.0";
+
+                let custTarget = custAllocations[role];
+                let custActual = actualCustSets[role].size;
+                let custPct = custTarget > 0 ? ((custActual / custTarget) * 100).toFixed(1) : "0.0";
+
+                allocHtml += '<div style="background: #f8fafc; padding: 6px 8px; border-radius: 6px; border: 1px solid #cbd5e1;">' +
+                             '<div style="font-weight: bold; color: #1e293b; margin-bottom: 2px;">' + role + '</div>' +
+                             '<div style="display: flex; justify-content: space-between; font-size: 10px; color: #475569;">' +
+                             '<span>Pkg Qty: <b>' + pkgActual + '/' + pkgTarget + '</b> (' + pkgPct + '%)</span>' +
+                             '<span>Customer: <b>' + custActual + '/' + custTarget + '</b> (' + custPct + '%)</span>' +
+                             '</div>' +
+                             '</div>';
+            }
+            allocHtml += '</div>';
+            document.getElementById('allocationSummaryContainer').innerHTML = allocHtml;
+
             let bounds = [];
-            filteredData.forEach((item) => {{
+            filteredData.forEach((item) => {
                 bounds.push([item.lat, item.lon]);
                 const itemDiv = document.createElement('div');
                 itemDiv.className = 'outlet-item';
@@ -599,48 +649,50 @@ if semua_data_gabungan:
                 
                 let marker = createLeafletMarker(item);
 
-                itemDiv.onclick = function() {{
-                    document.querySelectorAll('.outlet-item').forEach(function(el) {{ el.classList.remove('active'); }});
+                itemDiv.onclick = function() {
+                    document.querySelectorAll('.outlet-item').forEach(function(el) { el.classList.remove('active'); });
                     itemDiv.classList.add('active');
                     map.setView([item.lat, item.lon], 16);
                     marker.openPopup();
-                }};
+                };
                 listContainer.appendChild(itemDiv);
-            }});
+            });
 
-            if (bounds.length > 0) {{
-                map.fitBounds(bounds, {{ padding: [30, 30], maxZoom: 15 }});
-            }}
-            setTimeout(function() {{ map.invalidateSize(); }}, 100);
-        }}
+            if (bounds.length > 0) {
+                map.fitBounds(bounds, { padding: [30, 30], maxZoom: 15 });
+            }
+            setTimeout(function() { map.invalidateSize(); }, 100);
+        }
 
-        function createLeafletMarker(item) {{
+        function createLeafletMarker(item) {
             const color = surveyorColorMap[item.surveyor] || '#2563eb';
-            const customIcon = L.divIcon({{ className: 'custom-div-icon', html: '<div style="background-color: ' + color + '; width: 14px; height: 14px; border-radius: 50%; border: 2px solid white; box-shadow: 0 0 6px rgba(0,0,0,0.4);"></div>', iconSize: [14, 14], iconAnchor: [7, 7] }});
+            const customIcon = L.divIcon({ className: 'custom-div-icon', html: '<div style="background-color: ' + color + '; width: 14px; height: 14px; border-radius: 50%; border: 2px solid white; box-shadow: 0 0 6px rgba(0,0,0,0.4);"></div>', iconSize: [14, 14], iconAnchor: [7, 7] });
             
             let fotoHtml = '';
-            if (item.foto_list && item.foto_list.length > 0) {{
+            if (item.foto_list && item.foto_list.length > 0) {
                 fotoHtml = '<div style="margin-top: 6px; text-align: center; max-height: 220px; overflow-y: auto; padding-right: 4px;">';
-                item.foto_list.forEach((fPath, idx) => {{
+                item.foto_list.forEach((fPath, idx) => {
                     fotoHtml += '<div style="margin-bottom: 6px; background: #f8fafc; padding: 4px; border-radius: 4px; border: 1px solid #e2e8f0;"><a href="' + fPath + '" target="_blank"><img src="' + fPath + '" width="220" style="border-radius: 4px; border: 1px solid #cbd5e1; display: block; margin: 0 auto;"></a><small style="color: #64748b; font-size: 10px; display: block; margin-top: 3px;">Foto ' + (idx + 1) + ' (Klik untuk memperbesar)</small></div>';
-                }});
+                });
                 fotoHtml += '</div>';
-            }} else {{
+            } else {
                 fotoHtml = '<div style="margin-top: 6px; color: #64748b; font-style: italic; font-size: 10px;">Tidak ada foto kunjungan.</div>';
-            }}
+            }
             
             const popupContent = '<b style="color: #0f172a; font-size: 13px;">' + item.surveyee + '</b><br><span style="color: #64748b;">ID:</span> <b>' + item.surveyee_id + '</b><br><hr style="margin: 4px 0; border: 0; border-top: 1px solid #cbd5e1;"><span style="color: #64748b;">Waktu:</span> ' + item.timestamp + '<br><span style="color: #64748b;">Surveyor:</span> ' + item.surveyor + '<br><span style="color: #64748b;">Region/ASM:</span> ' + item.region + ' / ' + item.asm + '<br><span style="color: #64748b;">Qty Total:</span> <span style="color: #2563eb; font-weight: bold;">' + item.qty + '</span><br><span style="color: #64748b;">GPS:</span> <code style="background: #f1f5f9; padding: 1px 3px; border-radius: 3px; font-size: 10px;">' + item.lat + ', ' + item.lon + '</code>' + fotoHtml;
             
-            const marker = L.marker([item.lat, item.lon], {{ icon: customIcon }}).bindPopup(popupContent);
+            const marker = L.marker([item.lat, item.lon], { icon: customIcon }).bindPopup(popupContent);
             markersLayer.addLayer(marker);
             return marker;
-        }}
+        }
 
         window.onload = initDashboard;
     </script>
 </body>
 </html>
 """
+
+        multilayer_dashboard_html = html_template.replace("__DATA_JSON_PLACEHOLDER__", data_json)
 
         with open(FILE_HTML_PETA, 'w', encoding='utf-8') as f_html:
             f_html.write(multilayer_dashboard_html)
@@ -655,7 +707,7 @@ if semua_data_gabungan:
         print(f"7. File Log Detail disimpan di                : '{FILE_LOG}'")
         print(f"8. File Peta HTML (Mobile-Responsive GIS)      : '{FILE_HTML_PETA}'")
         
-        # --- FITUR OTOMATIS UPLOAD KE GITHUB (DENGAN PATH ABSOLUT GIT & AUTO .GITIGNORE) ---
+        # --- FITUR OTOMATIS UPLOAD KE GITHUB (DENGAN PATH ABSOLUT GIT) ---
         print("\n-> Sedang melakukan Auto-Sync & Push ke GitHub...")
         try:
             waktu_sekarang = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -671,7 +723,7 @@ if semua_data_gabungan:
                     gf.write("\nsource/\n")
 
             # Path absolut Git di Windows (fallback ke 'git' jika tidak ditemukan di path default)
-            git_path = r"C:\Program Files\Git\cmd\git.exe"
+            git_path = r"C:\\Program Files\\Git\\cmd\\git.exe"
             if not os.path.exists(git_path):
                 git_path = "git"
 
