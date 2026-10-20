@@ -655,11 +655,21 @@ if semua_data_gabungan:
         print(f"7. File Log Detail disimpan di                : '{FILE_LOG}'")
         print(f"8. File Peta HTML (Mobile-Responsive GIS)      : '{FILE_HTML_PETA}'")
         
-        # --- FITUR OTOMATIS UPLOAD KE GITHUB (DENGAN PATH ABSOLUT GIT) ---
+        # --- FITUR OTOMATIS UPLOAD KE GITHUB (DENGAN PATH ABSOLUT GIT & AUTO .GITIGNORE) ---
         print("\n-> Sedang melakukan Auto-Sync & Push ke GitHub...")
         try:
             waktu_sekarang = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             
+            # Otomatis pastikan folder source/ diabaikan oleh git agar tidak terkena limit ukuran file GitHub
+            gitignore_path = os.path.join(BASE_DIR, ".gitignore")
+            ignore_content = ""
+            if os.path.exists(gitignore_path):
+                with open(gitignore_path, "r", encoding="utf-8") as gf:
+                    ignore_content = gf.read()
+            if "source/" not in ignore_content:
+                with open(gitignore_path, "a", encoding="utf-8") as gf:
+                    gf.write("\nsource/\n")
+
             # Path absolut Git di Windows (fallback ke 'git' jika tidak ditemukan di path default)
             git_path = r"C:\Program Files\Git\cmd\git.exe"
             if not os.path.exists(git_path):
