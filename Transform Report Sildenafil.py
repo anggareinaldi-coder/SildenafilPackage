@@ -34,7 +34,7 @@ for idx, row in df_mapping_excel.iterrows():
         continue
     sid = str(row["Surveyor ID"]).strip()
     MASTER_SURVEYOR[sid] = {
-        "Position": row["Position"] if not pd.isna(row["Position"]) else "-",
+        "Position": str(row["Position"]).strip() if not pd.isna(row["Position"]) else "-",
         "Region": row["Region"] if not pd.isna(row["Region"]) else "-",
         "ASM": row["ASM"] if not pd.isna(row["ASM"]) else "-"
     }
@@ -404,12 +404,19 @@ if semua_data_gabungan:
                     <option value="ALL">-- Semua Outlet --</option>
                 </select>
             </div>
-            <div class="stats-box">
-                <h3>Total Distribusi Sildenafil Package</h3>
-                <div id="totalOutletStat" class="val">0</div>
+            <!-- Statistik Utama -->
+            <div style="display: flex; gap: 8px;">
+                <div class="stats-box" style="flex: 1;">
+                    <h3>Total Distribusi Pkg</h3>
+                    <div id="totalQtyStat" class="val">0</div>
+                </div>
+                <div class="stats-box" style="flex: 1; background: linear-gradient(135deg, #059669 0%, #047857 100%);">
+                    <h3>Total Customer</h3>
+                    <div id="totalCustStat" class="val">0</div>
+                </div>
             </div>
             <div style="background: #ffffff; border: 1px solid #cbd5e1; border-radius: 8px; padding: 10px; font-size: 11px;">
-                <div style="font-weight: 600; color: #0f172a; margin-bottom: 6px; border-bottom: 1px solid #e2e8f0; padding-bottom: 4px;">📊 Alokasi vs Realisasi</div>
+                <div style="font-weight: 600; color: #0f172a; margin-bottom: 6px; border-bottom: 1px solid #e2e8f0; padding-bottom: 4px;">📊 Target per Role vs Realisasi</div>
                 <div id="allocationSummaryContainer" style="display: flex; flex-direction: column; gap: 4px;">
                     <!-- Diisi via Javascript -->
                 </div>
@@ -598,12 +605,25 @@ if semua_data_gabungan:
             if (srv !== 'ALL') filteredData = filteredData.filter(item => item.surveyor === srv);
             if (out !== 'ALL') filteredData = filteredData.filter(item => item.surveyee === out);
             
-            document.getElementById('totalOutletStat').innerText = filteredData.length;
-            document.getElementById('counterBadge').innerText = filteredData.length + ' Outlet';
+            // Hitung Total Qty & Total Unique Customer (Overall)
+            let totalQty = 0;
+            let uniqueCustSet = new Set();
 
-            // Hitung dan tampilkan Alokasi vs Realisasi Qty & Customer (Unique) per Role/Position
-            const pkgAllocations = { "SBD": 600, "MSD": 200, "ASM": 40, "TSS": 20 };
-            const custAllocations = { "SBD": 300, "MSD": 100, "ASM": 4, "TSS": 2 };
+            filteredData.forEach(item => {
+                let q = typeof item.qty === 'number' ? item.qty : parseFloat(item.qty) || 0;
+                totalQty += q;
+                if (item.surveyee_id) {
+                    uniqueCustSet.add(item.surveyee_id);
+                }
+            });
+
+            document.getElementById('totalQtyStat').innerText = totalQty;
+            document.getElementById('totalCustStat').innerText = uniqueCustSet.size;
+            document.getElementById('counterBadge').innerText = filteredData.length + ' Baris';
+
+            // Target per Role (SBD: 600 pkg / 300 cust, MSD: 200 pkg / 100 cust, ASM: 40 pkg / 4 cust, TSS: 20 pkg / 2 cust)
+            const pkgTargetsPerRole = { "SBD": 600, "MSD": 200, "ASM": 40, "TSS": 20 };
+            const custTargetsPerRole = { "SBD": 300, "MSD": 100, "ASM": 4, "TSS": 2 };
             
             const actualQtyMap = { "SBD": 0, "MSD": 0, "ASM": 0, "TSS": 0 };
             const actualCustSets = { "SBD": new Set(), "MSD": new Set(), "ASM": new Set(), "TSS": new Set() };
@@ -620,20 +640,20 @@ if semua_data_gabungan:
             });
 
             let allocHtml = '<div style="display:flex; flex-direction:column; gap:6px;">';
-            for (let role in pkgAllocations) {
-                let pkgTarget = pkgAllocations[role];
+            for (let role in pkgTargetsPerRole) {
+                let pkgTarget = pkgTargetsPerRole[role];
                 let pkgActual = actualQtyMap[role] || 0;
                 let pkgPct = pkgTarget > 0 ? ((pkgActual / pkgTarget) * 100).toFixed(1) : "0.0";
 
-                let custTarget = custAllocations[role];
+                let custTarget = custTargetsPerRole[role];
                 let custActual = actualCustSets[role].size;
                 let custPct = custTarget > 0 ? ((custActual / custTarget) * 100).toFixed(1) : "0.0";
 
                 allocHtml += '<div style="background: #f8fafc; padding: 6px 8px; border-radius: 6px; border: 1px solid #cbd5e1;">' +
-                             '<div style="font-weight: bold; color: #1e293b; margin-bottom: 2px;">' + role + '</div>' +
+                             '<div style="font-weight: bold; color: #1e293b; margin-bottom: 2px;">Role: ' + role + '</div>' +
                              '<div style="display: flex; justify-content: space-between; font-size: 10px; color: #475569;">' +
                              '<span>Pkg Qty: <b>' + pkgActual + '/' + pkgTarget + '</b> (' + pkgPct + '%)</span>' +
-                             '<span>Customer: <b>' + custActual + '/' + custTarget + '</b> (' + custPct + '%)</span>' +
+                             '<span>Cust: <b>' + custActual + '/' + custTarget + '</b> (' + custPct + '%)</span>' +
                              '</div>' +
                              '</div>';
             }
