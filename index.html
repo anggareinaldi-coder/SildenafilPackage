@@ -354,6 +354,24 @@
 
             let filteredMasters = getTableFilteredMasters(regVal, asmVal, posVal, srvVal);
 
+            // Sorting by Region, ASM, Role (ASM, TSS, SBD, MSD)
+            const roleRank = { 'ASM': 1, 'TSS': 2, 'SBD': 3, 'MSD': 4 };
+            filteredMasters.sort((a, b) => {
+                let regA = a.region || '';
+                let regB = b.region || '';
+                if (regA !== regB) return regA.localeCompare(regB);
+
+                let asmA = a.asm || '';
+                let asmB = b.asm || '';
+                if (asmA !== asmB) return asmA.localeCompare(asmB);
+
+                let rA = roleRank[a.position.toUpperCase().trim()] || 99;
+                let rB = roleRank[b.position.toUpperCase().trim()] || 99;
+                if (rA !== rB) return rA - rB;
+
+                return (a.surveyor || '').localeCompare(b.surveyor || '');
+            });
+
             let actualPkgMap = {};
             let actualCustMap = {};
 

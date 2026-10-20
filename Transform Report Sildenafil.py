@@ -725,6 +725,24 @@ if semua_data_gabungan:
 
             let filteredMasters = getTableFilteredMasters(regVal, asmVal, posVal, srvVal);
 
+            // Sorting by Region, ASM, Role (ASM, TSS, SBD, MSD)
+            const roleRank = { 'ASM': 1, 'TSS': 2, 'SBD': 3, 'MSD': 4 };
+            filteredMasters.sort((a, b) => {
+                let regA = a.region || '';
+                let regB = b.region || '';
+                if (regA !== regB) return regA.localeCompare(regB);
+
+                let asmA = a.asm || '';
+                let asmB = b.asm || '';
+                if (asmA !== asmB) return asmA.localeCompare(asmB);
+
+                let rA = roleRank[a.position.toUpperCase().trim()] || 99;
+                let rB = roleRank[b.position.toUpperCase().trim()] || 99;
+                if (rA !== rB) return rA - rB;
+
+                return (a.surveyor || '').localeCompare(b.surveyor || '');
+            });
+
             let actualPkgMap = {};
             let actualCustMap = {};
 
@@ -1098,7 +1116,7 @@ if semua_data_gabungan:
                 git_path = "git"
 
             subprocess.run(f'"{git_path}" add .', cwd=BASE_DIR, shell=True, check=True)
-            subprocess.run(f'"{git_path}" commit -m "Auto-update dynamic filtered Excel download pada {waktu_sekarang}"', cwd=BASE_DIR, shell=True, check=True)
+            subprocess.run(f'"{git_path}" commit -m "Auto-update dynamic filtered Excel download dan tabel ordering pada {waktu_sekarang}"', cwd=BASE_DIR, shell=True, check=True)
             subprocess.run(f'"{git_path}" push', cwd=BASE_DIR, shell=True, check=True)
             print("[SUKSES] Perubahan berhasil di-push otomatis ke GitHub! 🎉")
         except subprocess.CalledProcessError as git_err:
