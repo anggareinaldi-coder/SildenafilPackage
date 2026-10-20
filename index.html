@@ -30,7 +30,7 @@
         .filter-field label { font-size: 11px; font-weight: 600; color: #64748b; }
         .filter-field select { padding: 8px 12px; border-radius: 6px; border: 1px solid #cbd5e1; font-size: 12px; background: #f8fafc; outline: none; }
         
-        .summary-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 15px; margin-bottom: 20px; }
+        .summary-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 15px; margin-bottom: 20px; }
         .scard { background: white; padding: 15px; border-radius: 8px; border: 1px solid #cbd5e1; box-shadow: 0 2px 4px rgba(0,0,0,0.02); }
         .scard h4 { margin: 0 0 5px 0; font-size: 11px; color: #64748b; text-transform: uppercase; }
         .scard .sval { font-size: 20px; font-weight: bold; color: #0f172a; }
@@ -75,7 +75,7 @@
         <h1>🗺️ Sildenafil Package Dashboard</h1>
         <div class="nav-buttons">
             <button id="btnTableView" class="nav-btn active" onclick="switchView('table')">📊 Tabel Target vs Actual</button>
-            <button id="btnMapView" class="nav-btn" onclick="switchView('map')">📍 Peta GIS & Sebaran</button>
+            <button id="btnMapView" class="nav-btn" onclick="switchView('map')">📍 Visualisasi Sebaran Titik Distribusi</button>
         </div>
     </header>
 
@@ -119,12 +119,12 @@
 
                 <div class="summary-cards">
                     <div class="scard">
-                        <h4>Total Target Distribusi Pkg</h4>
+                        <h4>Total Target Distribusi Sildenafil Package</h4>
                         <div id="sumTargetPkg" class="sval">0</div>
                     </div>
                     <div class="scard">
-                        <h4>Total Actual Distribusi Pkg</h4>
-                        <div id="sumActualPkg" class="sval" style="color: #2563eb;">0</div>
+                        <h4>Total Actual Distribusi Sildenafil Package</h4>
+                        <div id="sumActualPkg" class="sval" style="color: #2563eb;">0 <small id="sumPkgPct" style="font-size:12px; font-weight:normal; color:#059669;">(0.0% vs Target)</small></div>
                     </div>
                     <div class="scard">
                         <h4>Total Target Customer</h4>
@@ -132,7 +132,7 @@
                     </div>
                     <div class="scard">
                         <h4>Total Actual Customer</h4>
-                        <div id="sumActualCust" class="sval" style="color: #059669;">0</div>
+                        <div id="sumActualCust" class="sval" style="color: #059669;">0 <small id="sumCustPct" style="font-size:12px; font-weight:normal; color:#059669;">(0.0% vs Target)</small></div>
                     </div>
                 </div>
 
@@ -154,7 +154,7 @@
                     </table>
                 </div>
                 <div style="margin-top: 15px; text-align: right;">
-                    <button onclick="switchView('map')" style="padding: 10px 20px; background: #2563eb; color: white; border: none; border-radius: 6px; font-weight: 600; cursor: pointer; font-size: 13px;">Buka Peta Sebaran GIS ➡️</button>
+                    <button onclick="switchView('map')" style="padding: 10px 20px; background: #2563eb; color: white; border: none; border-radius: 6px; font-weight: 600; cursor: pointer; font-size: 13px;">Buka Visualisasi Sebaran Titik Distribusi ➡️</button>
                 </div>
             </div>
         </div>
@@ -412,10 +412,14 @@
                 tbody.appendChild(tr);
             });
 
+            let pctPkgOverall = totalTgtPkg > 0 ? ((totalActPkg / totalTgtPkg) * 100).toFixed(1) : "0.0";
+            let actualCustCount = totalActCustSet.size;
+            let pctCustOverall = totalTgtCust > 0 ? ((actualCustCount / totalTgtCust) * 100).toFixed(1) : "0.0";
+
             document.getElementById('sumTargetPkg').innerText = totalTgtPkg;
-            document.getElementById('sumActualPkg').innerText = totalActPkg;
+            document.getElementById('sumActualPkg').innerHTML = `${totalActPkg} <small id="sumPkgPct" style="font-size:12px; font-weight:normal; color:${totalActPkg >= totalTgtPkg ? '#059669' : '#dc2626'};">(${pctPkgOverall}% vs Target)</small>`;
             document.getElementById('sumTargetCust').innerText = totalTgtCust;
-            document.getElementById('sumActualCust').innerText = totalActCustSet.size;
+            document.getElementById('sumActualCust').innerHTML = `${actualCustCount} <small id="sumCustPct" style="font-size:12px; font-weight:normal; color:${actualCustCount >= totalTgtCust ? '#059669' : '#dc2626'};">(${pctCustOverall}% vs Target)</small>`;
         }
 
         // --- MAP VIEW ---
@@ -593,7 +597,7 @@
                 fotoHtml = '<div style="margin-top: 6px; color: #64748b; font-style: italic; font-size: 10px;">Tidak ada foto.</div>';
             }
             
-            const popupContent = `<b>${item.surveyee}</b><br>ID: <b>${item.surveyee_id}</b><br><hr style="margin: 4px 0;"><small>Surveyor: ${item.surveyor}<br>Region/ASM: ${item.region} / ${item.asm}<br>Qty: <b>${item.qty}</b></small>${fotoHtml}`;
+            const popupContent = `<b>${item.surveyee}</b><br>ID: <b>${item.surveyee_id}</b><br><hr style="margin: 4px 0;"><small>Surveyor: ${item.surveyor}<br>Region/ASM: ${item.region} / ${item.asm}<br><b>Latitude, Longitude:</b> ${item.lat}, ${item.lon}<br><b>Qty:</b> ${item.qty}<br><b>Timestamp:</b> ${item.timestamp}</small>${fotoHtml}`;
             const marker = L.marker([item.lat, item.lon], { icon: customIcon }).bindPopup(popupContent);
             markersLayer.addLayer(marker);
             return marker;

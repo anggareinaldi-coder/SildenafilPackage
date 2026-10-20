@@ -246,7 +246,7 @@ for nama_file_excel in files_in_source:
             })
 
 print(f"Total outlet unik setelah deduplikasi & agregasi Qty: {len(outlet_aggregated_data)} outlet")
-print("=== Menghasilkan Dashboard Unified (Tabel Cascading + Peta GIS) ===")
+print("=== Menghasilkan Dashboard Unified (Cascading Table + Visualisasi Sebaran) ===")
 
 semua_data_gabungan = []
 list_data_peta = []
@@ -379,7 +379,7 @@ if semua_data_gabungan:
         .filter-field label { font-size: 11px; font-weight: 600; color: #64748b; }
         .filter-field select { padding: 8px 12px; border-radius: 6px; border: 1px solid #cbd5e1; font-size: 12px; background: #f8fafc; outline: none; }
         
-        .summary-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 15px; margin-bottom: 20px; }
+        .summary-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 15px; margin-bottom: 20px; }
         .scard { background: white; padding: 15px; border-radius: 8px; border: 1px solid #cbd5e1; box-shadow: 0 2px 4px rgba(0,0,0,0.02); }
         .scard h4 { margin: 0 0 5px 0; font-size: 11px; color: #64748b; text-transform: uppercase; }
         .scard .sval { font-size: 20px; font-weight: bold; color: #0f172a; }
@@ -424,7 +424,7 @@ if semua_data_gabungan:
         <h1>🗺️ Sildenafil Package Dashboard</h1>
         <div class="nav-buttons">
             <button id="btnTableView" class="nav-btn active" onclick="switchView('table')">📊 Tabel Target vs Actual</button>
-            <button id="btnMapView" class="nav-btn" onclick="switchView('map')">📍 Peta GIS & Sebaran</button>
+            <button id="btnMapView" class="nav-btn" onclick="switchView('map')">📍 Visualisasi Sebaran Titik Distribusi</button>
         </div>
     </header>
 
@@ -468,12 +468,12 @@ if semua_data_gabungan:
 
                 <div class="summary-cards">
                     <div class="scard">
-                        <h4>Total Target Distribusi Pkg</h4>
+                        <h4>Total Target Distribusi Sildenafil Package</h4>
                         <div id="sumTargetPkg" class="sval">0</div>
                     </div>
                     <div class="scard">
-                        <h4>Total Actual Distribusi Pkg</h4>
-                        <div id="sumActualPkg" class="sval" style="color: #2563eb;">0</div>
+                        <h4>Total Actual Distribusi Sildenafil Package</h4>
+                        <div id="sumActualPkg" class="sval" style="color: #2563eb;">0 <small id="sumPkgPct" style="font-size:12px; font-weight:normal; color:#059669;">(0.0% vs Target)</small></div>
                     </div>
                     <div class="scard">
                         <h4>Total Target Customer</h4>
@@ -481,7 +481,7 @@ if semua_data_gabungan:
                     </div>
                     <div class="scard">
                         <h4>Total Actual Customer</h4>
-                        <div id="sumActualCust" class="sval" style="color: #059669;">0</div>
+                        <div id="sumActualCust" class="sval" style="color: #059669;">0 <small id="sumCustPct" style="font-size:12px; font-weight:normal; color:#059669;">(0.0% vs Target)</small></div>
                     </div>
                 </div>
 
@@ -503,7 +503,7 @@ if semua_data_gabungan:
                     </table>
                 </div>
                 <div style="margin-top: 15px; text-align: right;">
-                    <button onclick="switchView('map')" style="padding: 10px 20px; background: #2563eb; color: white; border: none; border-radius: 6px; font-weight: 600; cursor: pointer; font-size: 13px;">Buka Peta Sebaran GIS ➡️</button>
+                    <button onclick="switchView('map')" style="padding: 10px 20px; background: #2563eb; color: white; border: none; border-radius: 6px; font-weight: 600; cursor: pointer; font-size: 13px;">Buka Visualisasi Sebaran Titik Distribusi ➡️</button>
                 </div>
             </div>
         </div>
@@ -761,10 +761,14 @@ if semua_data_gabungan:
                 tbody.appendChild(tr);
             });
 
+            let pctPkgOverall = totalTgtPkg > 0 ? ((totalActPkg / totalTgtPkg) * 100).toFixed(1) : "0.0";
+            let actualCustCount = totalActCustSet.size;
+            let pctCustOverall = totalTgtCust > 0 ? ((actualCustCount / totalTgtCust) * 100).toFixed(1) : "0.0";
+
             document.getElementById('sumTargetPkg').innerText = totalTgtPkg;
-            document.getElementById('sumActualPkg').innerText = totalActPkg;
+            document.getElementById('sumActualPkg').innerHTML = `${totalActPkg} <small id="sumPkgPct" style="font-size:12px; font-weight:normal; color:${totalActPkg >= totalTgtPkg ? '#059669' : '#dc2626'};">(${pctPkgOverall}% vs Target)</small>`;
             document.getElementById('sumTargetCust').innerText = totalTgtCust;
-            document.getElementById('sumActualCust').innerText = totalActCustSet.size;
+            document.getElementById('sumActualCust').innerHTML = `${actualCustCount} <small id="sumCustPct" style="font-size:12px; font-weight:normal; color:${actualCustCount >= totalTgtCust ? '#059669' : '#dc2626'};">(${pctCustOverall}% vs Target)</small>`;
         }
 
         // --- MAP VIEW ---
@@ -942,7 +946,7 @@ if semua_data_gabungan:
                 fotoHtml = '<div style="margin-top: 6px; color: #64748b; font-style: italic; font-size: 10px;">Tidak ada foto.</div>';
             }
             
-            const popupContent = `<b>${item.surveyee}</b><br>ID: <b>${item.surveyee_id}</b><br><hr style="margin: 4px 0;"><small>Surveyor: ${item.surveyor}<br>Region/ASM: ${item.region} / ${item.asm}<br>Qty: <b>${item.qty}</b></small>${fotoHtml}`;
+            const popupContent = `<b>${item.surveyee}</b><br>ID: <b>${item.surveyee_id}</b><br><hr style="margin: 4px 0;"><small>Surveyor: ${item.surveyor}<br>Region/ASM: ${item.region} / ${item.asm}<br><b>Latitude, Longitude:</b> ${item.lat}, ${item.lon}<br><b>Qty:</b> ${item.qty}<br><b>Timestamp:</b> ${item.timestamp}</small>${fotoHtml}`;
             const marker = L.marker([item.lat, item.lon], { icon: customIcon }).bindPopup(popupContent);
             markersLayer.addLayer(marker);
             return marker;
@@ -963,8 +967,15 @@ if semua_data_gabungan:
 
         print(f"\n[RINGKASAN PROSES FINAL]")
         print(f"1. Total baris data diproses                : {len(list_log_detail)} baris")
-        print(f"2. Total outlet unik tersimpan di Excel Utama: {len(df_clean)} baris")
-        print(f"3. File Dashboard Unified (Cascading Table + Peta GIS): '{FILE_HTML_PETA}'")
+        print(f"2. Total baris digabung/akumulasi Qty         : {total_baris_digabung} baris")
+        print(f"3. Total outlet unik tersimpan di Excel Utama: {len(df_clean)} baris")
+        print(f"4. Total foto unik yang berhasil didownload    : {total_foto_diekstrak} foto")
+        print(f"5. Total foto gagal didownload                : {total_foto_gagal} foto")
+        print(f"6. Total outlet/baris tanpa foto              : {total_tanpa_foto} baris")
+        print(f"7. Total titik GPS valid di Peta GIS          : {len(list_data_peta)} titik")
+        print(f"8. File Excel Utama disimpan di               : '{path_excel_output}'")
+        print(f"9. File Log Detail disimpan di                : '{FILE_LOG}'")
+        print(f"10. File Peta HTML (Visualisasi Titik)         : '{FILE_HTML_PETA}'")
         
         # --- AUTO-PUSH KE GITHUB ---
         print("\n-> Sedang melakukan Auto-Sync & Push ke GitHub...")
@@ -985,7 +996,7 @@ if semua_data_gabungan:
                 git_path = "git"
 
             subprocess.run(f'"{git_path}" add .', cwd=BASE_DIR, shell=True, check=True)
-            subprocess.run(f'"{git_path}" commit -m "Auto-update cascading filters & table headers pada {waktu_sekarang}"', cwd=BASE_DIR, shell=True, check=True)
+            subprocess.run(f'"{git_path}" commit -m "Auto-update actual cards with achievement percentages pada {waktu_sekarang}"', cwd=BASE_DIR, shell=True, check=True)
             subprocess.run(f'"{git_path}" push', cwd=BASE_DIR, shell=True, check=True)
             print("[SUKSES] Perubahan berhasil di-push otomatis ke GitHub! 🎉")
         except subprocess.CalledProcessError as git_err:
@@ -996,4 +1007,4 @@ if semua_data_gabungan:
 else:
     print("[WARNING] Total baris gabungan kosong.")
 
-print("\n=== [SELESAI ALL PROCESS] == Dashboard Cascading Updated ==")
+print("\n=== [SELESAI ALL PROCESS] == Dashboard Updated Successfully ==")
