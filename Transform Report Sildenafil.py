@@ -246,7 +246,7 @@ for nama_file_excel in files_in_source:
             })
 
 print(f"Total outlet unik setelah deduplikasi & agregasi Qty: {len(outlet_aggregated_data)} outlet")
-print("=== Menghasilkan Dashboard Unified (Tabel Ringkasan + Peta GIS) ===")
+print("=== Menghasilkan Dashboard Unified (Tabel Cascading + Peta GIS) ===")
 
 semua_data_gabungan = []
 list_data_peta = []
@@ -331,7 +331,6 @@ if semua_data_gabungan:
         df_log = pd.DataFrame(list_log_detail)
         df_log.to_excel(FILE_LOG, index=False)
         
-        # Sertakan master surveyor juga ke dalam JSON agar tabel ringkasan bisa menampilkan semua surveyor meskipun belum survey
         master_list_json = []
         for sid, info in MASTER_SURVEYOR.items():
             master_list_json.append({
@@ -376,7 +375,7 @@ if semua_data_gabungan:
         /* Summary Table View Styles */
         .table-content { padding: 20px; max-width: 1400px; margin: 0 auto; width: 100%; }
         .filter-bar { background: white; padding: 15px; border-radius: 8px; border: 1px solid #cbd5e1; display: flex; gap: 15px; align-items: center; margin-bottom: 20px; flex-wrap: wrap; box-shadow: 0 2px 4px rgba(0,0,0,0.02); }
-        .filter-field { display: flex; flex-direction: column; gap: 4px; flex: 1; min-width: 200px; }
+        .filter-field { display: flex; flex-direction: column; gap: 4px; flex: 1; min-width: 180px; }
         .filter-field label { font-size: 11px; font-weight: 600; color: #64748b; }
         .filter-field select { padding: 8px 12px; border-radius: 6px; border: 1px solid #cbd5e1; font-size: 12px; background: #f8fafc; outline: none; }
         
@@ -430,30 +429,36 @@ if semua_data_gabungan:
     </header>
 
     <div class="view-container">
-        <!-- VIEW 1: TABEL RINGKASAN TARGET VS ACTUAL -->
+        <!-- VIEW 1: TABEL RINGKASAN TARGET VS ACTUAL (CASCADING FILTER) -->
         <div id="viewTable" class="view-page active">
             <div class="table-content">
                 <div class="filter-bar">
                     <div class="filter-field">
                         <label for="tableRegionFilter">Filter Region:</label>
-                        <select id="tableRegionFilter" onchange="renderTableData()">
+                        <select id="tableRegionFilter" onchange="onTableRegionChange()">
                             <option value="ALL">-- Semua Region --</option>
                         </select>
                     </div>
                     <div class="filter-field">
                         <label for="tableAsmFilter">Filter ASM:</label>
-                        <select id="tableAsmFilter" onchange="renderTableData()">
+                        <select id="tableAsmFilter" onchange="onTableAsmChange()">
                             <option value="ALL">-- Semua ASM --</option>
                         </select>
                     </div>
                     <div class="filter-field">
-                        <label for="tablePositionFilter">Filter Role / Position:</label>
-                        <select id="tablePositionFilter" onchange="renderTableData()">
+                        <label for="tablePositionFilter">Filter Role:</label>
+                        <select id="tablePositionFilter" onchange="onTablePositionChange()">
                             <option value="ALL">-- Semua Role --</option>
                             <option value="SBD">SBD</option>
                             <option value="MSD">MSD</option>
                             <option value="ASM">ASM</option>
                             <option value="TSS">TSS</option>
+                        </select>
+                    </div>
+                    <div class="filter-field">
+                        <label for="tableSurveyorFilter">Filter Surveyor:</label>
+                        <select id="tableSurveyorFilter" onchange="renderTableData()">
+                            <option value="ALL">-- Semua Surveyor --</option>
                         </select>
                     </div>
                     <div style="display: flex; align-items: flex-end;">
@@ -463,11 +468,11 @@ if semua_data_gabungan:
 
                 <div class="summary-cards">
                     <div class="scard">
-                        <h4>Total Target Pkg Qty</h4>
+                        <h4>Total Target Distribusi Pkg</h4>
                         <div id="sumTargetPkg" class="sval">0</div>
                     </div>
                     <div class="scard">
-                        <h4>Total Actual Pkg Qty</h4>
+                        <h4>Total Actual Distribusi Pkg</h4>
                         <div id="sumActualPkg" class="sval" style="color: #2563eb;">0</div>
                     </div>
                     <div class="scard">
@@ -488,12 +493,8 @@ if semua_data_gabungan:
                                 <th>ASM</th>
                                 <th>Role</th>
                                 <th>Surveyor Name</th>
-                                <th>Target Pkg</th>
-                                <th>Actual Pkg</th>
-                                <th>% Pkg</th>
-                                <th>Target Cust</th>
-                                <th>Actual Cust</th>
-                                <th>% Cust</th>
+                                <th style="text-align: center;">Sildenafil Package Distribusi<br><small style="font-weight: normal; color: #64748b;">(Actual vs Target)</small></th>
+                                <th style="text-align: center;">Sildenafil Package Customer<br><small style="font-weight: normal; color: #64748b;">(Actual vs Target)</small></th>
                             </tr>
                         </thead>
                         <tbody id="summaryTableBody">
@@ -552,7 +553,6 @@ if semua_data_gabungan:
         const surveyData = rawPayload.surveyData || [];
         const masterSurveyor = rawPayload.masterSurveyor || [];
 
-        // Standar Target Per Orang / Per Role
         const targetPerPerson = {
             "SBD": { pkg: 600, cust: 300 },
             "MSD": { pkg: 200, cust: 100 },
@@ -584,25 +584,99 @@ if semua_data_gabungan:
             }
         }
 
-        // --- INISIALISASI TABLE VIEW ---
-        function initTableFilters() {
-            const regSelect = document.getElementById('tableRegionFilter');
-            const asmSelect = document.getElementById('tableAsmFilter');
+        // --- CASCADING TABLE FILTERS ---
+        function getTableFilteredMasters(reg, asm, pos, srv) {
+            return masterSurveyor.filter(m => {
+                if (reg && reg !== 'ALL' && m.region !== reg) return false;
+                if (asm && asm !== 'ALL' && m.asm !== asm) return false;
+                if (pos && pos !== 'ALL' && m.position.toUpperCase() !== pos.toUpperCase()) return false;
+                if (srv && srv !== 'ALL' && m.surveyor !== srv) return false;
+                return true;
+            });
+        }
 
+        function initTableFilters() {
+            populateTableRegionDropdown();
+            populateTableAsmDropdown('ALL');
+            populateTableSurveyorDropdown('ALL', 'ALL', 'ALL');
+            renderTableData();
+        }
+
+        function populateTableRegionDropdown() {
+            const regSelect = document.getElementById('tableRegionFilter');
+            const currentVal = regSelect.value;
+            regSelect.innerHTML = '<option value="ALL">-- Semua Region --</option>';
             const regions = [...new Set(masterSurveyor.map(m => m.region))].filter(r => r && r !== '-').sort();
             regions.forEach(r => {
                 const opt = document.createElement('option');
                 opt.value = r; opt.textContent = r;
                 regSelect.appendChild(opt);
             });
+            regSelect.value = regions.includes(currentVal) ? currentVal : 'ALL';
+        }
 
-            const asms = [...new Set(masterSurveyor.map(m => m.asm))].filter(a => a && a !== '-').sort();
+        function populateTableAsmDropdown(region) {
+            const asmSelect = document.getElementById('tableAsmFilter');
+            const currentVal = asmSelect.value;
+            asmSelect.innerHTML = '<option value="ALL">-- Semua ASM --</option>';
+            
+            let subset = masterSurveyor;
+            if (region && region !== 'ALL') {
+                subset = subset.filter(m => m.region === region);
+            }
+            const asms = [...new Set(subset.map(m => m.asm))].filter(a => a && a !== '-').sort();
             asms.forEach(a => {
                 const opt = document.createElement('option');
                 opt.value = a; opt.textContent = a;
                 asmSelect.appendChild(opt);
             });
+            asmSelect.value = asms.includes(currentVal) ? currentVal : 'ALL';
+        }
 
+        function populateTableSurveyorDropdown(region, asm, position) {
+            const srvSelect = document.getElementById('tableSurveyorFilter');
+            const currentVal = srvSelect.value;
+            srvSelect.innerHTML = '<option value="ALL">-- Semua Surveyor --</option>';
+
+            let subset = masterSurveyor;
+            if (region && region !== 'ALL') subset = subset.filter(m => m.region === region);
+            if (asm && asm !== 'ALL') subset = subset.filter(m => m.asm === asm);
+            if (position && position !== 'ALL') subset = subset.filter(m => m.position.toUpperCase() === position.toUpperCase());
+
+            const surveyors = [...new Set(subset.map(m => m.surveyor))].filter(s => s && s !== '-').sort();
+            surveyors.forEach(s => {
+                const opt = document.createElement('option');
+                opt.value = s; opt.textContent = s;
+                srvSelect.appendChild(opt);
+            });
+            srvSelect.value = surveyors.includes(currentVal) ? currentVal : 'ALL';
+        }
+
+        function onTableRegionChange() {
+            const reg = document.getElementById('tableRegionFilter').value;
+            const asm = document.getElementById('tableAsmFilter').value;
+            const pos = document.getElementById('tablePositionFilter').value;
+
+            populateTableAsmDropdown(reg);
+            populateTableSurveyorDropdown(reg, asm, pos);
+            renderTableData();
+        }
+
+        function onTableAsmChange() {
+            const reg = document.getElementById('tableRegionFilter').value;
+            const asm = document.getElementById('tableAsmFilter').value;
+            const pos = document.getElementById('tablePositionFilter').value;
+
+            populateTableSurveyorDropdown(reg, asm, pos);
+            renderTableData();
+        }
+
+        function onTablePositionChange() {
+            const reg = document.getElementById('tableRegionFilter').value;
+            const asm = document.getElementById('tableAsmFilter').value;
+            const pos = document.getElementById('tablePositionFilter').value;
+
+            populateTableSurveyorDropdown(reg, asm, pos);
             renderTableData();
         }
 
@@ -610,6 +684,9 @@ if semua_data_gabungan:
             document.getElementById('tableRegionFilter').value = 'ALL';
             document.getElementById('tableAsmFilter').value = 'ALL';
             document.getElementById('tablePositionFilter').value = 'ALL';
+            document.getElementById('tableSurveyorFilter').value = 'ALL';
+            populateTableAsmDropdown('ALL');
+            populateTableSurveyorDropdown('ALL', 'ALL', 'ALL');
             renderTableData();
         }
 
@@ -617,16 +694,10 @@ if semua_data_gabungan:
             const regVal = document.getElementById('tableRegionFilter').value;
             const asmVal = document.getElementById('tableAsmFilter').value;
             const posVal = document.getElementById('tablePositionFilter').value;
+            const srvVal = document.getElementById('tableSurveyorFilter').value;
 
-            // Filter master surveyor
-            let filteredMasters = masterSurveyor.filter(m => {
-                if (regVal !== 'ALL' && m.region !== regVal) return false;
-                if (asmVal !== 'ALL' && m.asm !== asmVal) return false;
-                if (posVal !== 'ALL' && m.position.toUpperCase() !== posVal.toUpperCase()) return false;
-                return true;
-            });
+            let filteredMasters = getTableFilteredMasters(regVal, asmVal, posVal, srvVal);
 
-            // Agregasi actual per surveyor id dari surveyData
             let actualPkgMap = {};
             let actualCustMap = {};
 
@@ -660,7 +731,6 @@ if semua_data_gabungan:
                 totalActPkg += aPkg;
                 totalTgtCust += tCust;
                 
-                // Kumpulkan unique customer overall untuk row ini
                 surveyData.filter(d => d.surveyor_id === m.surveyor_id).forEach(d => {
                     if (d.surveyee_id) totalActCustSet.add(d.surveyee_id);
                 });
@@ -679,12 +749,14 @@ if semua_data_gabungan:
                     <td>${m.asm}</td>
                     <td><span class="badge ${badgeClass}">${m.position}</span></td>
                     <td><b>${m.surveyor}</b></td>
-                    <td>${tPkg}</td>
-                    <td><b>${aPkg}</b></td>
-                    <td><span style="color: ${aPkg >= tPkg ? '#059669' : '#dc2626'}; font-weight: 600;">${pPkg}%</span></td>
-                    <td>${tCust}</td>
-                    <td><b>${aCust}</b></td>
-                    <td><span style="color: ${aCust >= tCust ? '#059669' : '#dc2626'}; font-weight: 600;">${pCust}%</span></td>
+                    <td style="text-align: center;">
+                        <b>${aPkg}</b> / ${tPkg} <br>
+                        <small style="color: ${aPkg >= tPkg ? '#059669' : '#dc2626'}; font-weight: 600;">(${pPkg}%)</small>
+                    </td>
+                    <td style="text-align: center;">
+                        <b>${aCust}</b> / ${tCust} <br>
+                        <small style="color: ${aCust >= tCust ? '#059669' : '#dc2626'}; font-weight: 600;">(${pCust}%)</small>
+                    </td>
                 `;
                 tbody.appendChild(tr);
             });
@@ -695,7 +767,7 @@ if semua_data_gabungan:
             document.getElementById('sumActualCust').innerText = totalActCustSet.size;
         }
 
-        // --- INISIALISASI MAP VIEW ---
+        // --- MAP VIEW ---
         function initMapFilters() {
             const regSelect = document.getElementById('mapRegionFilter');
             const regions = [...new Set(surveyData.map(item => item.region))].sort();
@@ -852,7 +924,7 @@ if semua_data_gabungan:
             if (bounds.length > 0) {
                 map.fitBounds(bounds, { padding: [30, 30], maxZoom: 15 });
             }
-            setTimeout(() => { map.invalidateSize(); }, 100);
+            setTimeout(() => { map.invalidateSize(); }, 200);
         }
 
         function createLeafletMarker(item) {
@@ -892,7 +964,7 @@ if semua_data_gabungan:
         print(f"\n[RINGKASAN PROSES FINAL]")
         print(f"1. Total baris data diproses                : {len(list_log_detail)} baris")
         print(f"2. Total outlet unik tersimpan di Excel Utama: {len(df_clean)} baris")
-        print(f"3. File Dashboard Unified (Tabel + Peta GIS) : '{FILE_HTML_PETA}'")
+        print(f"3. File Dashboard Unified (Cascading Table + Peta GIS): '{FILE_HTML_PETA}'")
         
         # --- AUTO-PUSH KE GITHUB ---
         print("\n-> Sedang melakukan Auto-Sync & Push ke GitHub...")
@@ -913,7 +985,7 @@ if semua_data_gabungan:
                 git_path = "git"
 
             subprocess.run(f'"{git_path}" add .', cwd=BASE_DIR, shell=True, check=True)
-            subprocess.run(f'"{git_path}" commit -m "Auto-update summary table & GIS map pada {waktu_sekarang}"', cwd=BASE_DIR, shell=True, check=True)
+            subprocess.run(f'"{git_path}" commit -m "Auto-update cascading filters & table headers pada {waktu_sekarang}"', cwd=BASE_DIR, shell=True, check=True)
             subprocess.run(f'"{git_path}" push', cwd=BASE_DIR, shell=True, check=True)
             print("[SUKSES] Perubahan berhasil di-push otomatis ke GitHub! 🎉")
         except subprocess.CalledProcessError as git_err:
@@ -924,4 +996,4 @@ if semua_data_gabungan:
 else:
     print("[WARNING] Total baris gabungan kosong.")
 
-print("\n=== [SELESAI ALL PROCESS] == Unified Dashboard Generated ==")
+print("\n=== [SELESAI ALL PROCESS] == Dashboard Cascading Updated ==")
