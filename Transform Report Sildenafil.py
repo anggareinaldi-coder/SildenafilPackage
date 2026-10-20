@@ -12,7 +12,7 @@ DIR_IMAGE = os.path.join(BASE_DIR, "image")
 DIR_OUTPUT = os.path.join(BASE_DIR, "output")
 FILE_MAPPING = os.path.join(BASE_DIR, "mapping_surveyor.xlsx")
 FILE_LOG = os.path.join(BASE_DIR, "log_proses_survey.xlsx")
-FILE_HTML_PETA = os.path.join(BASE_DIR, "index.html")
+FILE_HTML_PETA = os.path.join(BASE_DIR, "peta_sebaran_sildenafil.html")
 
 for direktori in [DIR_SOURCE, DIR_IMAGE, DIR_OUTPUT]:
     if not os.path.exists(direktori):
