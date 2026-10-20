@@ -56,6 +56,10 @@ total_foto_diekstrak = 0
 total_baris_digabung = 0
 total_foto_gagal = 0
 total_tanpa_foto = 0
+total_duplikat_dibuang = 0
+
+# Set untuk mendeteksi duplikat murni (Timestamp + Surveyor ID + Surveyor Name + Surveyee ID + Surveyee Name)
+seen_exact_rows = set()
 
 for nama_file_excel in files_in_source:
     path_excel_input = os.path.join(DIR_SOURCE, nama_file_excel)
@@ -105,6 +109,27 @@ for nama_file_excel in files_in_source:
         surveyor_str = str(surveyor).strip()
         surveyee_id_str = str(surveyee_id).strip()
         surveyee_str = str(surveyee).strip()
+
+        # Aturan 2: Cek apakah baris ini duplikat murni (Timestamp, Surveyor ID, Surveyor Name, Surveyee ID, Surveyee Name sama persis)
+        exact_row_signature = (timestamp_str, surveyor_id_str, surveyor_str, surveyee_id_str, surveyee_str)
+        if exact_row_signature in seen_exact_rows:
+            total_duplikat_dibuang += 1
+            list_log_detail.append({
+                "Waktu Eksekusi": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                "Nama File Source": nama_file_excel,
+                "Nomor Baris": row,
+                "Timestamp Data": timestamp_str,
+                "Surveyor ID": surveyor_id_str,
+                "Surveyor": surveyor_str,
+                "Surveyee ID": surveyee_id_str,
+                "Surveyee / Outlet": surveyee_str,
+                "Status Baris": "DIHAPUS (Duplikat Identik)",
+                "Status Foto": "-",
+                "Path / Keterangan": "Baris duplikat murni (timestamp & surveyor/outlet identik) dihapus"
+            })
+            continue
+        
+        seen_exact_rows.add(exact_row_signature)
 
         row_values = [ws_image.cell(row=row, column=col).value for col in range(1, ws_image.max_column + 1)]
         
@@ -187,12 +212,13 @@ for nama_file_excel in files_in_source:
             status_foto_log = "TIDAK ADA FOTO"
             keterangan_foto_log = "Tidak ada objek gambar pada baris ini"
 
+        # Aturan 1: Waktu berbeda / kunjungan berbeda ke outlet yang sama -> Digabung & Qty dijumlahkan
         outlet_key = (surveyor_id_str, surveyor_str, surveyee_id_str, surveyee_str)
 
         if outlet_key in outlet_aggregated_data:
             total_baris_digabung += 1
             existing_qty = outlet_aggregated_data[outlet_key]["qty_numeric"]
-            new_qty = max(existing_qty, row_qty) if row_qty > 0 else existing_qty
+            new_qty = existing_qty + row_qty
             outlet_aggregated_data[outlet_key]["qty_numeric"] = new_qty
             outlet_aggregated_data[outlet_key]["qty"] = int(new_qty) if new_qty.is_integer() else new_qty
             
@@ -213,9 +239,9 @@ for nama_file_excel in files_in_source:
                 "Surveyor": surveyor_str,
                 "Surveyee ID": surveyee_id_str,
                 "Surveyee / Outlet": surveyee_str,
-                "Status Baris": "DIGABUNG (QTY Dijumlah)",
+                "Status Baris": "DIGABUNG (Akumulasi Qty Waktu Berbeda)",
                 "Status Foto": status_foto_log,
-                "Path / Keterangan": f"Outlet sudah ada, Qty digabung jadi {outlet_aggregated_data[outlet_key]['qty']}"
+                "Path / Keterangan": f"Outlet & Surveyor sama, Qty digabung jadi {outlet_aggregated_data[outlet_key]['qty']}"
             })
         else:
             outlet_aggregated_data[outlet_key] = {
@@ -245,7 +271,7 @@ for nama_file_excel in files_in_source:
                 "Path / Keterangan": keterangan_foto_log
             })
 
-print(f"Total outlet unik setelah deduplikasi & agregasi Qty: {len(outlet_aggregated_data)} outlet")
+print(f"Total outlet unik setelah agregasi: {len(outlet_aggregated_data)} outlet")
 print("=== Menghasilkan Dashboard Unified (Cascading Table + Visualisasi Sebaran) ===")
 
 semua_data_gabungan = []
@@ -967,15 +993,16 @@ if semua_data_gabungan:
 
         print(f"\n[RINGKASAN PROSES FINAL]")
         print(f"1. Total baris data diproses                : {len(list_log_detail)} baris")
-        print(f"2. Total baris digabung/akumulasi Qty         : {total_baris_digabung} baris")
-        print(f"3. Total outlet unik tersimpan di Excel Utama: {len(df_clean)} baris")
-        print(f"4. Total foto unik yang berhasil didownload    : {total_foto_diekstrak} foto")
-        print(f"5. Total foto gagal didownload                : {total_foto_gagal} foto")
-        print(f"6. Total outlet/baris tanpa foto              : {total_tanpa_foto} baris")
-        print(f"7. Total titik GPS valid di Peta GIS          : {len(list_data_peta)} titik")
-        print(f"8. File Excel Utama disimpan di               : '{path_excel_output}'")
-        print(f"9. File Log Detail disimpan di                : '{FILE_LOG}'")
-        print(f"10. File Peta HTML (Visualisasi Titik)         : '{FILE_HTML_PETA}'")
+        print(f"2. Total baris duplikat identik dihapus       : {total_duplikat_dibuang} baris")
+        print(f"3. Total baris digabung (waktu/kunjungan beda): {total_baris_digabung} baris")
+        print(f"4. Total outlet unik tersimpan di Excel Utama: {len(df_clean)} baris")
+        print(f"5. Total foto unik yang berhasil didownload    : {total_foto_diekstrak} foto")
+        print(f"6. Total foto gagal didownload                : {total_foto_gagal} foto")
+        print(f"7. Total outlet/baris tanpa foto              : {total_tanpa_foto} baris")
+        print(f"8. Total titik GPS valid di Peta GIS          : {len(list_data_peta)} titik")
+        print(f"9. File Excel Utama disimpan di               : '{path_excel_output}'")
+        print(f"10. File Log Detail disimpan di               : '{FILE_LOG}'")
+        print(f"11. File Peta HTML (Visualisasi Titik)        : '{FILE_HTML_PETA}'")
         
         # --- AUTO-PUSH KE GITHUB ---
         print("\n-> Sedang melakukan Auto-Sync & Push ke GitHub...")
@@ -996,7 +1023,7 @@ if semua_data_gabungan:
                 git_path = "git"
 
             subprocess.run(f'"{git_path}" add .', cwd=BASE_DIR, shell=True, check=True)
-            subprocess.run(f'"{git_path}" commit -m "Auto-update actual cards with achievement percentages pada {waktu_sekarang}"', cwd=BASE_DIR, shell=True, check=True)
+            subprocess.run(f'"{git_path}" commit -m "Auto-update exact duplicate removal and time aggregation pada {waktu_sekarang}"', cwd=BASE_DIR, shell=True, check=True)
             subprocess.run(f'"{git_path}" push', cwd=BASE_DIR, shell=True, check=True)
             print("[SUKSES] Perubahan berhasil di-push otomatis ke GitHub! 🎉")
         except subprocess.CalledProcessError as git_err:
