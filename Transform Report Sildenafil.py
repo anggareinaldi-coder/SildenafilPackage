@@ -34,9 +34,10 @@ for idx, row in df_mapping_excel.iterrows():
         continue
     sid = str(row["Surveyor ID"]).strip()
     MASTER_SURVEYOR[sid] = {
+        "Sales Name": str(row["Sales Name"]).strip() if not pd.isna(row["Sales Name"]) else "Unknown",
         "Position": str(row["Position"]).strip() if not pd.isna(row["Position"]) else "-",
-        "Region": row["Region"] if not pd.isna(row["Region"]) else "-",
-        "ASM": row["ASM"] if not pd.isna(row["ASM"]) else "-"
+        "Region": str(row["Region"]).strip() if not pd.isna(row["Region"]) else "-",
+        "ASM": str(row["ASM"]).strip() if not pd.isna(row["ASM"]) else "-"
     }
 
 files_in_source = [f for f in os.listdir(DIR_SOURCE) if f.endswith('.xlsx') and not f.startswith('~$')]
@@ -245,7 +246,7 @@ for nama_file_excel in files_in_source:
             })
 
 print(f"Total outlet unik setelah deduplikasi & agregasi Qty: {len(outlet_aggregated_data)} outlet")
-print("=== Menghasilkan Dashboard Peta GIS Indonesia (Mobile Responsive) ===")
+print("=== Menghasilkan Dashboard Unified (Tabel Ringkasan + Peta GIS) ===")
 
 semua_data_gabungan = []
 list_data_peta = []
@@ -255,23 +256,22 @@ for k, v in outlet_aggregated_data.items():
     sid = v["surveyor_id"]
     reg = MASTER_SURVEYOR.get(sid, {}).get("Region", "-")
     asm = MASTER_SURVEYOR.get(sid, {}).get("ASM", "-")
+    pos = MASTER_SURVEYOR.get(sid, {}).get("Position", "-")
 
-    if v["lat"] is not None and v["lon"] is not None:
-        pos = MASTER_SURVEYOR.get(sid, {}).get("Position", "-")
-        list_data_peta.append({
-            "lat": v["lat"],
-            "lon": v["lon"],
-            "timestamp": v["timestamp"],
-            "surveyor": v["surveyor"],
-            "surveyor_id": v["surveyor_id"],
-            "surveyee": v["surveyee"],
-            "surveyee_id": v["surveyee_id"],
-            "region": reg,
-            "asm": asm,
-            "position": pos,
-            "qty": v["qty"],
-            "foto_list": v["foto_list"]
-        })
+    list_data_peta.append({
+        "lat": v["lat"],
+        "lon": v["lon"],
+        "timestamp": v["timestamp"],
+        "surveyor": v["surveyor"],
+        "surveyor_id": v["surveyor_id"],
+        "surveyee": v["surveyee"],
+        "surveyee_id": v["surveyee_id"],
+        "region": reg,
+        "asm": asm,
+        "position": pos,
+        "qty": v["qty_numeric"],
+        "foto_list": v["foto_list"]
+    })
 
 if semua_data_gabungan:
     df_clean = pd.DataFrame(semua_data_gabungan, columns=kolom_headers)
@@ -330,30 +330,78 @@ if semua_data_gabungan:
         df_clean.to_excel(path_excel_output, index=False)
         df_log = pd.DataFrame(list_log_detail)
         df_log.to_excel(FILE_LOG, index=False)
-        data_json = json.dumps(list_data_peta)
+        
+        # Sertakan master surveyor juga ke dalam JSON agar tabel ringkasan bisa menampilkan semua surveyor meskipun belum survey
+        master_list_json = []
+        for sid, info in MASTER_SURVEYOR.items():
+            master_list_json.append({
+                "surveyor_id": sid,
+                "surveyor": info["Sales Name"],
+                "position": info["Position"],
+                "region": info["Region"],
+                "asm": info["ASM"]
+            })
+
+        payload_data = {
+            "surveyData": list_data_peta,
+            "masterSurveyor": master_list_json
+        }
+        data_json = json.dumps(payload_data)
 
         html_template = """<!DOCTYPE html>
 <html lang="id">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-    <title>Dashboard Distribusi Sildenafil Package</title>
+    <title>Dashboard Sildenafil Package - Performance & GIS Map</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <style>
         * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-        html, body { height: 100%; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f1f5f9; color: #1e293b; overflow: hidden; }
-        header { height: 55px; background-color: #ffffff; color: #0f172a; padding: 0 15px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #cbd5e1; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); z-index: 2000; position: relative; }
-        header h1 { margin: 0; font-size: 15px; font-weight: 600; display: flex; align-items: center; gap: 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .header-badge { background: #2563eb; color: white; padding: 4px 10px; border-radius: 6px; font-size: 11px; font-weight: 600; white-space: nowrap; }
-        .main-container { display: flex; height: calc(100vh - 55px); width: 100vw; position: relative; }
+        html, body { height: 100%; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f1f5f9; color: #1e293b; }
+        
+        /* Navigation / Header */
+        header { height: 60px; background-color: #ffffff; color: #0f172a; padding: 0 20px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #cbd5e1; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); position: fixed; top: 0; left: 0; right: 0; z-index: 3000; }
+        header h1 { margin: 0; font-size: 16px; font-weight: 600; display: flex; align-items: center; gap: 8px; }
+        .nav-buttons { display: flex; gap: 10px; }
+        .nav-btn { background: #e2e8f0; color: #334155; border: none; padding: 6px 14px; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer; transition: all 0.2s; }
+        .nav-btn.active { background: #2563eb; color: white; }
+        .nav-btn:hover { opacity: 0.9; }
+
+        /* Views Container */
+        .view-container { margin-top: 60px; height: calc(100vh - 60px); width: 100vw; position: relative; overflow: hidden; }
+        .view-page { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: none; background: #f1f5f9; overflow-y: auto; }
+        .view-page.active { display: flex; flex-direction: column; }
+
+        /* Summary Table View Styles */
+        .table-content { padding: 20px; max-width: 1400px; margin: 0 auto; width: 100%; }
+        .filter-bar { background: white; padding: 15px; border-radius: 8px; border: 1px solid #cbd5e1; display: flex; gap: 15px; align-items: center; margin-bottom: 20px; flex-wrap: wrap; box-shadow: 0 2px 4px rgba(0,0,0,0.02); }
+        .filter-field { display: flex; flex-direction: column; gap: 4px; flex: 1; min-width: 200px; }
+        .filter-field label { font-size: 11px; font-weight: 600; color: #64748b; }
+        .filter-field select { padding: 8px 12px; border-radius: 6px; border: 1px solid #cbd5e1; font-size: 12px; background: #f8fafc; outline: none; }
+        
+        .summary-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 15px; margin-bottom: 20px; }
+        .scard { background: white; padding: 15px; border-radius: 8px; border: 1px solid #cbd5e1; box-shadow: 0 2px 4px rgba(0,0,0,0.02); }
+        .scard h4 { margin: 0 0 5px 0; font-size: 11px; color: #64748b; text-transform: uppercase; }
+        .scard .sval { font-size: 20px; font-weight: bold; color: #0f172a; }
+
+        .table-responsive { background: white; border-radius: 8px; border: 1px solid #cbd5e1; overflow-x: auto; box-shadow: 0 2px 4px rgba(0,0,0,0.02); }
+        table { width: 100%; border-collapse: collapse; text-align: left; font-size: 12px; }
+        th, td { padding: 10px 12px; border-bottom: 1px solid #e2e8f0; }
+        th { background: #f8fafc; font-weight: 600; color: #475569; position: sticky; top: 0; z-index: 10; }
+        tr:hover { background: #f8fafc; }
+        .badge { padding: 3px 8px; border-radius: 4px; font-size: 10px; font-weight: 600; }
+        .badge-sbd { background: #dbeafe; color: #1e40af; }
+        .badge-msd { background: #fef3c7; color: #92400e; }
+        .badge-asm { background: #d1fae5; color: #065f46; }
+        .badge-tss { background: #fae8ff; color: #86198f; }
+
+        /* Map View Styles */
+        .map-layout { display: flex; height: 100%; width: 100%; position: relative; }
         .sidebar { width: 380px; background-color: #ffffff; border-right: 1px solid #cbd5e1; display: flex; flex-direction: column; padding: 15px; gap: 10px; z-index: 1000; box-shadow: 4px 0 15px rgba(0,0,0,0.05); overflow-y: auto; }
-        .filter-group { display: flex; flex-direction: column; gap: 3px; }
-        .filter-group label { font-size: 11px; font-weight: 600; color: #64748b; }
-        .filter-group select { padding: 7px 10px; border-radius: 6px; border: 1px solid #cbd5e1; background-color: #f8fafc; color: #1e293b; font-size: 12px; outline: none; }
-        .stats-box { background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%); padding: 10px; border-radius: 8px; color: white; box-shadow: 0 4px 12px rgba(37, 99, 235, 0.2); }
-        .stats-box h3 { margin: 0 0 2px 0; font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px; opacity: 0.9; }
-        .stats-box .val { font-size: 18px; font-weight: bold; }
+        .sidebar-filter { display: flex; flex-direction: column; gap: 3px; }
+        .sidebar-filter label { font-size: 11px; font-weight: 600; color: #64748b; }
+        .sidebar-filter select { padding: 7px 10px; border-radius: 6px; border: 1px solid #cbd5e1; background-color: #f8fafc; color: #1e293b; font-size: 12px; outline: none; }
         .outlet-list { flex: 1; min-height: 150px; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; padding-right: 2px; }
         .outlet-item { background-color: #f8fafc; border: 1px solid #cbd5e1; padding: 8px 10px; border-radius: 6px; cursor: pointer; transition: all 0.2s ease; }
         .outlet-item:hover { border-color: #2563eb; background-color: #eff6ff; }
@@ -363,122 +411,330 @@ if semua_data_gabungan:
         #map { flex: 1; height: 100%; width: 100%; z-index: 1; }
 
         @media (max-width: 768px) {
-            .main-container { flex-direction: column-reverse; height: calc(100vh - 55px); }
-            .sidebar { width: 100%; height: 45%; max-height: 250px; padding: 10px; gap: 6px; border-right: none; border-top: 1px solid #cbd5e1; }
-            #map { height: 55% !important; width: 100% !important; }
-            header h1 { font-size: 13px; }
+            .map-layout { flex-direction: column-reverse; }
+            .sidebar { width: 100%; height: 45%; max-height: 250px; }
+            #map { height: 55% !important; }
         }
-        ::-webkit-scrollbar { width: 5px; }
+        ::-webkit-scrollbar { width: 5px; height: 5px; }
         ::-webkit-scrollbar-track { background: #f1f5f9; }
         ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
     </style>
 </head>
 <body>
     <header>
-        <h1>🗺️ Distribusi Sildenafil Package</h1>
-        <div id="counterBadge" class="header-badge">Memuat...</div>
-    </header>
-    <div class="main-container">
-        <div class="sidebar">
-            <div class="filter-group">
-                <label for="regionFilter">Filter Region:</label>
-                <select id="regionFilter" onchange="onRegionChange()">
-                    <option value="ALL">-- Semua Region --</option>
-                </select>
-            </div>
-            <div class="filter-group">
-                <label for="asmFilter">Filter ASM:</label>
-                <select id="asmFilter" onchange="onAsmChange()">
-                    <option value="ALL">-- Semua ASM --</option>
-                </select>
-            </div>
-            <div class="filter-group">
-                <label for="surveyorFilter">Filter Surveyor:</label>
-                <select id="surveyorFilter" onchange="onSurveyorChange()">
-                    <option value="ALL">-- Semua Surveyor --</option>
-                </select>
-            </div>
-            <div class="filter-group">
-                <label for="outletFilter">Filter Outlet (Surveyee):</label>
-                <select id="outletFilter" onchange="onOutletChange()">
-                    <option value="ALL">-- Semua Outlet --</option>
-                </select>
-            </div>
-            <!-- Statistik Utama -->
-            <div style="display: flex; gap: 8px;">
-                <div class="stats-box" style="flex: 1;">
-                    <h3>Total Distribusi Pkg</h3>
-                    <div id="totalQtyStat" class="val">0</div>
-                </div>
-                <div class="stats-box" style="flex: 1; background: linear-gradient(135deg, #059669 0%, #047857 100%);">
-                    <h3>Total Customer</h3>
-                    <div id="totalCustStat" class="val">0</div>
-                </div>
-            </div>
-            <div style="background: #ffffff; border: 1px solid #cbd5e1; border-radius: 8px; padding: 10px; font-size: 11px;">
-                <div style="font-weight: 600; color: #0f172a; margin-bottom: 6px; border-bottom: 1px solid #e2e8f0; padding-bottom: 4px;">📊 Target per Role vs Realisasi</div>
-                <div id="allocationSummaryContainer" style="display: flex; flex-direction: column; gap: 4px;">
-                    <!-- Diisi via Javascript -->
-                </div>
-            </div>
-            <div style="font-size: 11px; font-weight: 600; color: #64748b;">Daftar Outlet Terfilter:</div>
-            <div id="outletListContainer" class="outlet-list"></div>
+        <h1>🗺️ Sildenafil Package Dashboard</h1>
+        <div class="nav-buttons">
+            <button id="btnTableView" class="nav-btn active" onclick="switchView('table')">📊 Tabel Target vs Actual</button>
+            <button id="btnMapView" class="nav-btn" onclick="switchView('map')">📍 Peta GIS & Sebaran</button>
         </div>
-        <div id="map"></div>
+    </header>
+
+    <div class="view-container">
+        <!-- VIEW 1: TABEL RINGKASAN TARGET VS ACTUAL -->
+        <div id="viewTable" class="view-page active">
+            <div class="table-content">
+                <div class="filter-bar">
+                    <div class="filter-field">
+                        <label for="tableRegionFilter">Filter Region:</label>
+                        <select id="tableRegionFilter" onchange="renderTableData()">
+                            <option value="ALL">-- Semua Region --</option>
+                        </select>
+                    </div>
+                    <div class="filter-field">
+                        <label for="tableAsmFilter">Filter ASM:</label>
+                        <select id="tableAsmFilter" onchange="renderTableData()">
+                            <option value="ALL">-- Semua ASM --</option>
+                        </select>
+                    </div>
+                    <div class="filter-field">
+                        <label for="tablePositionFilter">Filter Role / Position:</label>
+                        <select id="tablePositionFilter" onchange="renderTableData()">
+                            <option value="ALL">-- Semua Role --</option>
+                            <option value="SBD">SBD</option>
+                            <option value="MSD">MSD</option>
+                            <option value="ASM">ASM</option>
+                            <option value="TSS">TSS</option>
+                        </select>
+                    </div>
+                    <div style="display: flex; align-items: flex-end;">
+                        <button onclick="resetTableFilters()" style="padding: 8px 14px; background: #cbd5e1; border: none; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer;">Reset Filter</button>
+                    </div>
+                </div>
+
+                <div class="summary-cards">
+                    <div class="scard">
+                        <h4>Total Target Pkg Qty</h4>
+                        <div id="sumTargetPkg" class="sval">0</div>
+                    </div>
+                    <div class="scard">
+                        <h4>Total Actual Pkg Qty</h4>
+                        <div id="sumActualPkg" class="sval" style="color: #2563eb;">0</div>
+                    </div>
+                    <div class="scard">
+                        <h4>Total Target Customer</h4>
+                        <div id="sumTargetCust" class="sval">0</div>
+                    </div>
+                    <div class="scard">
+                        <h4>Total Actual Customer</h4>
+                        <div id="sumActualCust" class="sval" style="color: #059669;">0</div>
+                    </div>
+                </div>
+
+                <div class="table-responsive">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Region</th>
+                                <th>ASM</th>
+                                <th>Role</th>
+                                <th>Surveyor Name</th>
+                                <th>Target Pkg</th>
+                                <th>Actual Pkg</th>
+                                <th>% Pkg</th>
+                                <th>Target Cust</th>
+                                <th>Actual Cust</th>
+                                <th>% Cust</th>
+                            </tr>
+                        </thead>
+                        <tbody id="summaryTableBody">
+                            <!-- Diisi via JavaScript -->
+                        </tbody>
+                    </table>
+                </div>
+                <div style="margin-top: 15px; text-align: right;">
+                    <button onclick="switchView('map')" style="padding: 10px 20px; background: #2563eb; color: white; border: none; border-radius: 6px; font-weight: 600; cursor: pointer; font-size: 13px;">Buka Peta Sebaran GIS ➡️</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- VIEW 2: PETA GIS & SEBARAN -->
+        <div id="viewMap" class="view-page">
+            <div class="map-layout">
+                <div class="sidebar">
+                    <div class="sidebar-filter">
+                        <label for="mapRegionFilter">Filter Region:</label>
+                        <select id="mapRegionFilter" onchange="onMapRegionChange()">
+                            <option value="ALL">-- Semua Region --</option>
+                        </select>
+                    </div>
+                    <div class="sidebar-filter">
+                        <label for="mapAsmFilter">Filter ASM:</label>
+                        <select id="mapAsmFilter" onchange="onMapAsmChange()">
+                            <option value="ALL">-- Semua ASM --</option>
+                        </select>
+                    </div>
+                    <div class="sidebar-filter">
+                        <label for="mapSurveyorFilter">Filter Surveyor:</label>
+                        <select id="mapSurveyorFilter" onchange="onMapSurveyorChange()">
+                            <option value="ALL">-- Semua Surveyor --</option>
+                        </select>
+                    </div>
+                    <div class="sidebar-filter">
+                        <label for="mapOutletFilter">Filter Outlet (Surveyee):</label>
+                        <select id="mapOutletFilter" onchange="onMapOutletChange()">
+                            <option value="ALL">-- Semua Outlet --</option>
+                        </select>
+                    </div>
+                    <div style="background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%); padding: 10px; border-radius: 8px; color: white;">
+                        <h3 style="margin: 0 0 2px 0; font-size: 10px; text-transform: uppercase;">Total Titik Sebaran Peta</h3>
+                        <div id="mapTotalStat" class="val" style="font-size: 18px; font-weight: bold;">0</div>
+                    </div>
+                    <div style="font-size: 11px; font-weight: 600; color: #64748b;">Daftar Outlet Terfilter:</div>
+                    <div id="outletListContainer" class="outlet-list"></div>
+                </div>
+                <div id="map"></div>
+            </div>
+        </div>
     </div>
+
     <script>
-        const surveyData = __DATA_JSON_PLACEHOLDER__;
+        const rawPayload = __PAYLOAD_JSON_PLACEHOLDER__;
+        const surveyData = rawPayload.surveyData || [];
+        const masterSurveyor = rawPayload.masterSurveyor || [];
+
+        // Standar Target Per Orang / Per Role
+        const targetPerPerson = {
+            "SBD": { pkg: 600, cust: 300 },
+            "MSD": { pkg: 200, cust: 100 },
+            "ASM": { pkg: 40, cust: 4 },
+            "TSS": { pkg: 20, cust: 2 }
+        };
+
         let surveyorColorMap = {};
         let map, markersLayer;
 
-        function initDashboard() {
-            populateRegionDropdown();
-            populateAsmDropdown(surveyData);
-            populateSurveyorDropdown(surveyData);
-            populateOutletDropdown(surveyData);
-            initMap();
-            renderDashboard('ALL', 'ALL', 'ALL', 'ALL');
+        function switchView(viewName) {
+            document.getElementById('viewTable').classList.remove('active');
+            document.getElementById('viewMap').classList.remove('active');
+            document.getElementById('btnTableView').classList.remove('active');
+            document.getElementById('btnMapView').classList.remove('active');
+
+            if (viewName === 'table') {
+                document.getElementById('viewTable').classList.add('active');
+                document.getElementById('btnTableView').classList.add('active');
+            } else {
+                document.getElementById('viewMap').classList.add('active');
+                document.getElementById('btnMapView').classList.add('active');
+                if (!map) {
+                    initMap();
+                } else {
+                    setTimeout(() => { map.invalidateSize(); }, 200);
+                }
+                renderMapDashboard('ALL', 'ALL', 'ALL', 'ALL');
+            }
         }
 
-        function populateRegionDropdown() {
-            const select = document.getElementById('regionFilter');
+        // --- INISIALISASI TABLE VIEW ---
+        function initTableFilters() {
+            const regSelect = document.getElementById('tableRegionFilter');
+            const asmSelect = document.getElementById('tableAsmFilter');
+
+            const regions = [...new Set(masterSurveyor.map(m => m.region))].filter(r => r && r !== '-').sort();
+            regions.forEach(r => {
+                const opt = document.createElement('option');
+                opt.value = r; opt.textContent = r;
+                regSelect.appendChild(opt);
+            });
+
+            const asms = [...new Set(masterSurveyor.map(m => m.asm))].filter(a => a && a !== '-').sort();
+            asms.forEach(a => {
+                const opt = document.createElement('option');
+                opt.value = a; opt.textContent = a;
+                asmSelect.appendChild(opt);
+            });
+
+            renderTableData();
+        }
+
+        function resetTableFilters() {
+            document.getElementById('tableRegionFilter').value = 'ALL';
+            document.getElementById('tableAsmFilter').value = 'ALL';
+            document.getElementById('tablePositionFilter').value = 'ALL';
+            renderTableData();
+        }
+
+        function renderTableData() {
+            const regVal = document.getElementById('tableRegionFilter').value;
+            const asmVal = document.getElementById('tableAsmFilter').value;
+            const posVal = document.getElementById('tablePositionFilter').value;
+
+            // Filter master surveyor
+            let filteredMasters = masterSurveyor.filter(m => {
+                if (regVal !== 'ALL' && m.region !== regVal) return false;
+                if (asmVal !== 'ALL' && m.asm !== asmVal) return false;
+                if (posVal !== 'ALL' && m.position.toUpperCase() !== posVal.toUpperCase()) return false;
+                return true;
+            });
+
+            // Agregasi actual per surveyor id dari surveyData
+            let actualPkgMap = {};
+            let actualCustMap = {};
+
+            surveyData.forEach(item => {
+                let sid = item.surveyor_id;
+                let q = typeof item.qty === 'number' ? item.qty : parseFloat(item.qty) || 0;
+                actualPkgMap[sid] = (actualPkgMap[sid] || 0) + q;
+
+                if (!actualCustMap[sid]) actualCustMap[sid] = new Set();
+                if (item.surveyee_id) actualCustMap[sid].add(item.surveyee_id);
+            });
+
+            const tbody = document.getElementById('summaryTableBody');
+            tbody.innerHTML = '';
+
+            let totalTgtPkg = 0;
+            let totalActPkg = 0;
+            let totalTgtCust = 0;
+            let totalActCustSet = new Set();
+
+            filteredMasters.forEach(m => {
+                let pos = m.position.toUpperCase().trim();
+                let tPkg = (targetPerPerson[pos] ? targetPerPerson[pos].pkg : 0);
+                let tCust = (targetPerPerson[pos] ? targetPerPerson[pos].cust : 0);
+
+                let aPkg = actualPkgMap[m.surveyor_id] || 0;
+                let aCustSet = actualCustMap[m.surveyor_id] || new Set();
+                let aCust = aCustSet.size;
+
+                totalTgtPkg += tPkg;
+                totalActPkg += aPkg;
+                totalTgtCust += tCust;
+                
+                // Kumpulkan unique customer overall untuk row ini
+                surveyData.filter(d => d.surveyor_id === m.surveyor_id).forEach(d => {
+                    if (d.surveyee_id) totalActCustSet.add(d.surveyee_id);
+                });
+
+                let pPkg = tPkg > 0 ? ((aPkg / tPkg) * 100).toFixed(1) : "0.0";
+                let pCust = tCust > 0 ? ((aCust / tCust) * 100).toFixed(1) : "0.0";
+
+                let badgeClass = 'badge-sbd';
+                if (pos === 'MSD') badgeClass = 'badge-msd';
+                else if (pos === 'ASM') badgeClass = 'badge-asm';
+                else if (pos === 'TSS') badgeClass = 'badge-tss';
+
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td>${m.region}</td>
+                    <td>${m.asm}</td>
+                    <td><span class="badge ${badgeClass}">${m.position}</span></td>
+                    <td><b>${m.surveyor}</b></td>
+                    <td>${tPkg}</td>
+                    <td><b>${aPkg}</b></td>
+                    <td><span style="color: ${aPkg >= tPkg ? '#059669' : '#dc2626'}; font-weight: 600;">${pPkg}%</span></td>
+                    <td>${tCust}</td>
+                    <td><b>${aCust}</b></td>
+                    <td><span style="color: ${aCust >= tCust ? '#059669' : '#dc2626'}; font-weight: 600;">${pCust}%</span></td>
+                `;
+                tbody.appendChild(tr);
+            });
+
+            document.getElementById('sumTargetPkg').innerText = totalTgtPkg;
+            document.getElementById('sumActualPkg').innerText = totalActPkg;
+            document.getElementById('sumTargetCust').innerText = totalTgtCust;
+            document.getElementById('sumActualCust').innerText = totalActCustSet.size;
+        }
+
+        // --- INISIALISASI MAP VIEW ---
+        function initMapFilters() {
+            const regSelect = document.getElementById('mapRegionFilter');
             const regions = [...new Set(surveyData.map(item => item.region))].sort();
             regions.forEach(r => {
                 if(r && r !== '-') {
                     const opt = document.createElement('option');
-                    opt.value = r;
-                    opt.textContent = r;
-                    select.appendChild(opt);
+                    opt.value = r; opt.textContent = r;
+                    regSelect.appendChild(opt);
                 }
             });
+            populateMapAsmDropdown(surveyData);
+            populateMapSurveyorDropdown(surveyData);
+            populateMapOutletDropdown(surveyData);
         }
 
-        function populateAsmDropdown(dataList) {
-            const select = document.getElementById('asmFilter');
+        function populateMapAsmDropdown(dataList) {
+            const select = document.getElementById('mapAsmFilter');
             const currentVal = select.value;
             select.innerHTML = '<option value="ALL">-- Semua ASM --</option>';
             const asms = [...new Set(dataList.map(item => item.asm))].sort();
             asms.forEach(a => {
                 if(a && a !== '-') {
                     const opt = document.createElement('option');
-                    opt.value = a;
-                    opt.textContent = a;
+                    opt.value = a; opt.textContent = a;
                     select.appendChild(opt);
                 }
             });
             select.value = asms.includes(currentVal) ? currentVal : 'ALL';
         }
 
-        function populateSurveyorDropdown(dataList) {
-            const select = document.getElementById('surveyorFilter');
+        function populateMapSurveyorDropdown(dataList) {
+            const select = document.getElementById('mapSurveyorFilter');
             const currentVal = select.value;
             select.innerHTML = '<option value="ALL">-- Semua Surveyor --</option>';
             const surveyors = [...new Set(dataList.map(item => item.surveyor))].sort();
             surveyors.forEach(s => {
                 if(s && s !== '-') {
                     const opt = document.createElement('option');
-                    opt.value = s;
-                    opt.textContent = s;
+                    opt.value = s; opt.textContent = s;
                     select.appendChild(opt);
                 }
             });
@@ -488,16 +744,15 @@ if semua_data_gabungan:
             surveyors.forEach((s, idx) => { surveyorColorMap[s] = palette[idx % palette.length]; });
         }
 
-        function populateOutletDropdown(dataList) {
-            const select = document.getElementById('outletFilter');
+        function populateMapOutletDropdown(dataList) {
+            const select = document.getElementById('mapOutletFilter');
             const currentVal = select.value;
             select.innerHTML = '<option value="ALL">-- Semua Outlet --</option>';
             const outlets = [...new Set(dataList.map(item => item.surveyee))].sort();
             outlets.forEach(o => {
                 if(o && o !== '-') {
                     const opt = document.createElement('option');
-                    opt.value = o;
-                    opt.textContent = o;
+                    opt.value = o; opt.textContent = o;
                     select.appendChild(opt);
                 }
             });
@@ -506,95 +761,62 @@ if semua_data_gabungan:
 
         function initMap() {
             map = L.map('map', { center: [-2.5489, 118.0149], zoom: 5, tap: true });
-            
-            const osmStandard = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '&copy; OpenStreetMap contributors' });
-            const osmDe = L.tileLayer('https://tile.openstreetmap.de/tiles/osmde/{z}/{x}/{y}.png', { maxZoom: 18, attribution: '&copy; OpenStreetMap' });
-            const esriStreet = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}', { maxZoom: 19, attribution: 'Tiles &copy; Esri' });
-
+            const osmStandard = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '&copy; OpenStreetMap' });
             osmStandard.addTo(map);
-
-            L.control.layers({
-                "OpenStreetMap (Detail Toko/Sekolah)": osmStandard,
-                "OSM De": osmDe,
-                "Esri Street": esriStreet
-            }).addTo(map);
-
             markersLayer = L.layerGroup().addTo(map);
-
-            setTimeout(function() {
-                map.invalidateSize();
-            }, 300);
-
-            window.addEventListener('resize', function() {
-                setTimeout(function() { map.invalidateSize(); }, 200);
-            });
+            initMapFilters();
         }
 
-        function getFilteredSubset(region, asm, surveyor) {
+        function getMapFilteredSubset(region, asm, surveyor) {
             let subset = surveyData;
-            if (region && region !== 'ALL') {
-                subset = subset.filter(item => item.region === region);
-            }
-            if (asm && asm !== 'ALL') {
-                subset = subset.filter(item => item.asm === asm);
-            }
-            if (surveyor && surveyor !== 'ALL') {
-                subset = subset.filter(item => item.surveyor === surveyor);
-            }
+            if (region && region !== 'ALL') subset = subset.filter(item => item.region === region);
+            if (asm && asm !== 'ALL') subset = subset.filter(item => item.asm === asm);
+            if (surveyor && surveyor !== 'ALL') subset = subset.filter(item => item.surveyor === surveyor);
             return subset;
         }
 
-        function onRegionChange() {
-            const reg = document.getElementById('regionFilter').value;
-            const asm = document.getElementById('asmFilter').value;
-            const srv = document.getElementById('surveyorFilter').value;
+        function onMapRegionChange() {
+            const reg = document.getElementById('mapRegionFilter').value;
+            const asm = document.getElementById('mapAsmFilter').value;
+            const srv = document.getElementById('mapSurveyorFilter').value;
 
-            let asmSubset = getFilteredSubset(reg, 'ALL', 'ALL');
-            populateAsmDropdown(asmSubset);
+            populateMapAsmDropdown(getMapFilteredSubset(reg, 'ALL', 'ALL'));
+            populateMapSurveyorDropdown(getMapFilteredSubset(reg, asm, 'ALL'));
+            populateMapOutletDropdown(getMapFilteredSubset(reg, asm, srv));
 
-            let srvSubset = getFilteredSubset(reg, asm, 'ALL');
-            populateSurveyorDropdown(srvSubset);
-
-            let outSubset = getFilteredSubset(reg, asm, srv);
-            populateOutletDropdown(outSubset);
-
-            renderDashboard(reg, document.getElementById('asmFilter').value, document.getElementById('surveyorFilter').value, 'ALL');
+            renderMapDashboard(reg, document.getElementById('mapAsmFilter').value, document.getElementById('mapSurveyorFilter').value, 'ALL');
         }
 
-        function onAsmChange() {
-            const reg = document.getElementById('regionFilter').value;
-            const asm = document.getElementById('asmFilter').value;
-            const srv = document.getElementById('surveyorFilter').value;
+        function onMapAsmChange() {
+            const reg = document.getElementById('mapRegionFilter').value;
+            const asm = document.getElementById('mapAsmFilter').value;
+            const srv = document.getElementById('mapSurveyorFilter').value;
 
-            let srvSubset = getFilteredSubset(reg, asm, 'ALL');
-            populateSurveyorDropdown(srvSubset);
+            populateMapSurveyorDropdown(getMapFilteredSubset(reg, asm, 'ALL'));
+            populateMapOutletDropdown(getMapFilteredSubset(reg, asm, srv));
 
-            let outSubset = getFilteredSubset(reg, asm, srv);
-            populateOutletDropdown(outSubset);
-
-            renderDashboard(reg, asm, document.getElementById('surveyorFilter').value, 'ALL');
+            renderMapDashboard(reg, asm, document.getElementById('mapSurveyorFilter').value, 'ALL');
         }
 
-        function onSurveyorChange() {
-            const reg = document.getElementById('regionFilter').value;
-            const asm = document.getElementById('asmFilter').value;
-            const srv = document.getElementById('surveyorFilter').value;
+        function onMapSurveyorChange() {
+            const reg = document.getElementById('mapRegionFilter').value;
+            const asm = document.getElementById('mapAsmFilter').value;
+            const srv = document.getElementById('mapSurveyorFilter').value;
 
-            let outSubset = getFilteredSubset(reg, asm, srv);
-            populateOutletDropdown(outSubset);
-
-            renderDashboard(reg, asm, srv, 'ALL');
+            populateMapOutletDropdown(getMapFilteredSubset(reg, asm, srv));
+            renderMapDashboard(reg, asm, srv, 'ALL');
         }
 
-        function onOutletChange() {
-            const reg = document.getElementById('regionFilter').value;
-            const asm = document.getElementById('asmFilter').value;
-            const srv = document.getElementById('surveyorFilter').value;
-            const out = document.getElementById('outletFilter').value;
-            renderDashboard(reg, asm, srv, out);
+        function onMapOutletChange() {
+            renderMapDashboard(
+                document.getElementById('mapRegionFilter').value,
+                document.getElementById('mapAsmFilter').value,
+                document.getElementById('mapSurveyorFilter').value,
+                document.getElementById('mapOutletFilter').value
+            );
         }
 
-        function renderDashboard(reg, asm, srv, out) {
+        function renderMapDashboard(reg, asm, srv, out) {
             const listContainer = document.getElementById('outletListContainer');
             listContainer.innerHTML = '';
             markersLayer.clearLayers();
@@ -605,134 +827,78 @@ if semua_data_gabungan:
             if (srv !== 'ALL') filteredData = filteredData.filter(item => item.surveyor === srv);
             if (out !== 'ALL') filteredData = filteredData.filter(item => item.surveyee === out);
             
-            // Hitung Total Qty & Total Unique Customer (Overall)
-            let totalQty = 0;
-            let uniqueCustSet = new Set();
-
-            filteredData.forEach(item => {
-                let q = typeof item.qty === 'number' ? item.qty : parseFloat(item.qty) || 0;
-                totalQty += q;
-                if (item.surveyee_id) {
-                    uniqueCustSet.add(item.surveyee_id);
-                }
-            });
-
-            document.getElementById('totalQtyStat').innerText = totalQty;
-            document.getElementById('totalCustStat').innerText = uniqueCustSet.size;
-            document.getElementById('counterBadge').innerText = filteredData.length + ' Baris';
-
-            // Target per Role (SBD: 600 pkg / 300 cust, MSD: 200 pkg / 100 cust, ASM: 40 pkg / 4 cust, TSS: 20 pkg / 2 cust)
-            const pkgTargetsPerRole = { "SBD": 600, "MSD": 200, "ASM": 40, "TSS": 20 };
-            const custTargetsPerRole = { "SBD": 300, "MSD": 100, "ASM": 4, "TSS": 2 };
-            
-            const actualQtyMap = { "SBD": 0, "MSD": 0, "ASM": 0, "TSS": 0 };
-            const actualCustSets = { "SBD": new Set(), "MSD": new Set(), "ASM": new Set(), "TSS": new Set() };
-
-            filteredData.forEach(item => {
-                let pos = (item.position || "").toUpperCase().trim();
-                let q = typeof item.qty === 'number' ? item.qty : parseFloat(item.qty) || 0;
-                if (actualQtyMap.hasOwnProperty(pos)) {
-                    actualQtyMap[pos] += q;
-                    if (item.surveyee_id) {
-                        actualCustSets[pos].add(item.surveyee_id);
-                    }
-                }
-            });
-
-            let allocHtml = '<div style="display:flex; flex-direction:column; gap:6px;">';
-            for (let role in pkgTargetsPerRole) {
-                let pkgTarget = pkgTargetsPerRole[role];
-                let pkgActual = actualQtyMap[role] || 0;
-                let pkgPct = pkgTarget > 0 ? ((pkgActual / pkgTarget) * 100).toFixed(1) : "0.0";
-
-                let custTarget = custTargetsPerRole[role];
-                let custActual = actualCustSets[role].size;
-                let custPct = custTarget > 0 ? ((custActual / custTarget) * 100).toFixed(1) : "0.0";
-
-                allocHtml += '<div style="background: #f8fafc; padding: 6px 8px; border-radius: 6px; border: 1px solid #cbd5e1;">' +
-                             '<div style="font-weight: bold; color: #1e293b; margin-bottom: 2px;">Role: ' + role + '</div>' +
-                             '<div style="display: flex; justify-content: space-between; font-size: 10px; color: #475569;">' +
-                             '<span>Pkg Qty: <b>' + pkgActual + '/' + pkgTarget + '</b> (' + pkgPct + '%)</span>' +
-                             '<span>Cust: <b>' + custActual + '/' + custTarget + '</b> (' + custPct + '%)</span>' +
-                             '</div>' +
-                             '</div>';
-            }
-            allocHtml += '</div>';
-            document.getElementById('allocationSummaryContainer').innerHTML = allocHtml;
+            document.getElementById('mapTotalStat').innerText = filteredData.length;
 
             let bounds = [];
             filteredData.forEach((item) => {
-                bounds.push([item.lat, item.lon]);
-                const itemDiv = document.createElement('div');
-                itemDiv.className = 'outlet-item';
-                itemDiv.innerHTML = '<div class="outlet-name">' + item.surveyee + '</div><div class="outlet-info"><span>ID: ' + item.surveyee_id + '</span><span style="color: #2563eb; font-weight: 600;">Qty: ' + item.qty + '</span></div><div style="font-size: 10px; color: #94a3b8; margin-top: 2px;">📍 ' + item.lat + ', ' + item.lon + '</div>';
-                
-                let marker = createLeafletMarker(item);
+                if (item.lat !== null && item.lon !== null) {
+                    bounds.push([item.lat, item.lon]);
+                    const itemDiv = document.createElement('div');
+                    itemDiv.className = 'outlet-item';
+                    itemDiv.innerHTML = `<div class="outlet-name">${item.surveyee}</div><div class="outlet-info"><span>ID: ${item.surveyee_id}</span><span style="color: #2563eb; font-weight: 600;">Qty: ${item.qty}</span></div><div style="font-size: 10px; color: #94a3b8; margin-top: 2px;">📍 ${item.lat}, ${item.lon}</div>`;
+                    
+                    let marker = createLeafletMarker(item);
 
-                itemDiv.onclick = function() {
-                    document.querySelectorAll('.outlet-item').forEach(function(el) { el.classList.remove('active'); });
-                    itemDiv.classList.add('active');
-                    map.setView([item.lat, item.lon], 16);
-                    marker.openPopup();
-                };
-                listContainer.appendChild(itemDiv);
+                    itemDiv.onclick = function() {
+                        document.querySelectorAll('.outlet-item').forEach(el => el.classList.remove('active'));
+                        itemDiv.classList.add('active');
+                        map.setView([item.lat, item.lon], 16);
+                        marker.openPopup();
+                    };
+                    listContainer.appendChild(itemDiv);
+                }
             });
 
             if (bounds.length > 0) {
                 map.fitBounds(bounds, { padding: [30, 30], maxZoom: 15 });
             }
-            setTimeout(function() { map.invalidateSize(); }, 100);
+            setTimeout(() => { map.invalidateSize(); }, 100);
         }
 
         function createLeafletMarker(item) {
             const color = surveyorColorMap[item.surveyor] || '#2563eb';
-            const customIcon = L.divIcon({ className: 'custom-div-icon', html: '<div style="background-color: ' + color + '; width: 14px; height: 14px; border-radius: 50%; border: 2px solid white; box-shadow: 0 0 6px rgba(0,0,0,0.4);"></div>', iconSize: [14, 14], iconAnchor: [7, 7] });
+            const customIcon = L.divIcon({ className: 'custom-div-icon', html: `<div style="background-color: ${color}; width: 14px; height: 14px; border-radius: 50%; border: 2px solid white; box-shadow: 0 0 6px rgba(0,0,0,0.4);"></div>`, iconSize: [14, 14], iconAnchor: [7, 7] });
             
             let fotoHtml = '';
             if (item.foto_list && item.foto_list.length > 0) {
-                fotoHtml = '<div style="margin-top: 6px; text-align: center; max-height: 220px; overflow-y: auto; padding-right: 4px;">';
+                fotoHtml = '<div style="margin-top: 6px; text-align: center; max-height: 200px; overflow-y: auto;">';
                 item.foto_list.forEach((fPath, idx) => {
-                    fotoHtml += '<div style="margin-bottom: 6px; background: #f8fafc; padding: 4px; border-radius: 4px; border: 1px solid #e2e8f0;"><a href="' + fPath + '" target="_blank"><img src="' + fPath + '" width="220" style="border-radius: 4px; border: 1px solid #cbd5e1; display: block; margin: 0 auto;"></a><small style="color: #64748b; font-size: 10px; display: block; margin-top: 3px;">Foto ' + (idx + 1) + ' (Klik untuk memperbesar)</small></div>';
+                    fotoHtml += `<div style="margin-bottom: 4px;"><a href="${fPath}" target="_blank"><img src="${fPath}" width="200" style="border-radius: 4px; border: 1px solid #cbd5e1;"></a><small style="display:block; font-size:9px; color:#64748b;">Foto ${idx+1}</small></div>`;
                 });
                 fotoHtml += '</div>';
             } else {
-                fotoHtml = '<div style="margin-top: 6px; color: #64748b; font-style: italic; font-size: 10px;">Tidak ada foto kunjungan.</div>';
+                fotoHtml = '<div style="margin-top: 6px; color: #64748b; font-style: italic; font-size: 10px;">Tidak ada foto.</div>';
             }
             
-            const popupContent = '<b style="color: #0f172a; font-size: 13px;">' + item.surveyee + '</b><br><span style="color: #64748b;">ID:</span> <b>' + item.surveyee_id + '</b><br><hr style="margin: 4px 0; border: 0; border-top: 1px solid #cbd5e1;"><span style="color: #64748b;">Waktu:</span> ' + item.timestamp + '<br><span style="color: #64748b;">Surveyor:</span> ' + item.surveyor + '<br><span style="color: #64748b;">Region/ASM:</span> ' + item.region + ' / ' + item.asm + '<br><span style="color: #64748b;">Qty Total:</span> <span style="color: #2563eb; font-weight: bold;">' + item.qty + '</span><br><span style="color: #64748b;">GPS:</span> <code style="background: #f1f5f9; padding: 1px 3px; border-radius: 3px; font-size: 10px;">' + item.lat + ', ' + item.lon + '</code>' + fotoHtml;
-            
+            const popupContent = `<b>${item.surveyee}</b><br>ID: <b>${item.surveyee_id}</b><br><hr style="margin: 4px 0;"><small>Surveyor: ${item.surveyor}<br>Region/ASM: ${item.region} / ${item.asm}<br>Qty: <b>${item.qty}</b></small>${fotoHtml}`;
             const marker = L.marker([item.lat, item.lon], { icon: customIcon }).bindPopup(popupContent);
             markersLayer.addLayer(marker);
             return marker;
         }
 
-        window.onload = initDashboard;
+        window.onload = function() {
+            initTableFilters();
+        };
     </script>
 </body>
 </html>
 """
 
-        multilayer_dashboard_html = html_template.replace("__DATA_JSON_PLACEHOLDER__", data_json)
+        final_html = html_template.replace("__PAYLOAD_JSON_PLACEHOLDER__", data_json)
 
         with open(FILE_HTML_PETA, 'w', encoding='utf-8') as f_html:
-            f_html.write(multilayer_dashboard_html)
+            f_html.write(final_html)
 
         print(f"\n[RINGKASAN PROSES FINAL]")
         print(f"1. Total baris data diproses                : {len(list_log_detail)} baris")
-        print(f"2. Total baris digabung/akumulasi Qty         : {total_baris_digabung} baris")
-        print(f"3. Total outlet unik tersimpan di Excel Utama: {len(df_clean)} baris")
-        print(f"4. Total foto unik yang berhasil didownload    : {total_foto_diekstrak} foto")
-        print(f"5. Total titik GPS valid di Peta GIS          : {len(list_data_peta)} titik")
-        print(f"6. File Excel Utama disimpan di               : '{path_excel_output}'")
-        print(f"7. File Log Detail disimpan di                : '{FILE_LOG}'")
-        print(f"8. File Peta HTML (Mobile-Responsive GIS)      : '{FILE_HTML_PETA}'")
+        print(f"2. Total outlet unik tersimpan di Excel Utama: {len(df_clean)} baris")
+        print(f"3. File Dashboard Unified (Tabel + Peta GIS) : '{FILE_HTML_PETA}'")
         
-        # --- FITUR OTOMATIS UPLOAD KE GITHUB (DENGAN PATH ABSOLUT GIT) ---
+        # --- AUTO-PUSH KE GITHUB ---
         print("\n-> Sedang melakukan Auto-Sync & Push ke GitHub...")
         try:
             waktu_sekarang = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             
-            # Otomatis pastikan folder source/ diabaikan oleh git agar tidak terkena limit ukuran file GitHub
             gitignore_path = os.path.join(BASE_DIR, ".gitignore")
             ignore_content = ""
             if os.path.exists(gitignore_path):
@@ -742,23 +908,20 @@ if semua_data_gabungan:
                 with open(gitignore_path, "a", encoding="utf-8") as gf:
                     gf.write("\nsource/\n")
 
-            # Path absolut Git di Windows (fallback ke 'git' jika tidak ditemukan di path default)
             git_path = r"C:\\Program Files\\Git\\cmd\\git.exe"
             if not os.path.exists(git_path):
                 git_path = "git"
 
             subprocess.run(f'"{git_path}" add .', cwd=BASE_DIR, shell=True, check=True)
-            subprocess.run(f'"{git_path}" commit -m "Auto-update data surveyor & peta pada {waktu_sekarang}"', cwd=BASE_DIR, shell=True, check=True)
+            subprocess.run(f'"{git_path}" commit -m "Auto-update summary table & GIS map pada {waktu_sekarang}"', cwd=BASE_DIR, shell=True, check=True)
             subprocess.run(f'"{git_path}" push', cwd=BASE_DIR, shell=True, check=True)
             print("[SUKSES] Perubahan berhasil di-push otomatis ke GitHub! 🎉")
         except subprocess.CalledProcessError as git_err:
             print(f"[WARNING] Gagal auto-push ke GitHub: {git_err}")
-            print("Tips: Pastikan koneksi internet stabil atau lakukan 'git push' manual jika diperlukan.")
-        # -----------------------------------------------------------------
         
     except PermissionError as e:
         print(f"\n[ERROR] Gagal menyimpan file karena sedang dibuka di Microsoft Excel! ({e})")
 else:
     print("[WARNING] Total baris gabungan kosong.")
 
-print("\n=== [SELESAI ALL PROCESS] == Mobile-Ready Dashboard Generated ==")
+print("\n=== [SELESAI ALL PROCESS] == Unified Dashboard Generated ==")
