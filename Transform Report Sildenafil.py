@@ -270,11 +270,24 @@ for nama_file_excel in files_in_source:
 
 print(f"Total outlet unik setelah agregasi: {len(outlet_aggregated_data)} outlet")
 
+# Cari indeks kolom Qty agar hasil agregasi ikut di-update ke file Excel utama
+qty_col_indices = []
+for idx_col, header in enumerate(kolom_headers):
+    header_name = str(header).lower() if header else ""
+    if any(k in header_name for k in ['qty', 'jumlah', 'total', 'pack', 'pcs', 'quantity']):
+        qty_col_indices.append(idx_col)
+
 semua_data_gabungan = []
 list_data_peta = []
 
 for k, v in outlet_aggregated_data.items():
-    semua_data_gabungan.append(v["row_values"])
+    current_row_values = list(v["row_values"])
+    for q_idx in qty_col_indices:
+        if q_idx < len(current_row_values):
+            current_row_values[q_idx] = v["qty"]
+            
+    semua_data_gabungan.append(current_row_values)
+    
     sid = v["surveyor_id"]
     reg = MASTER_SURVEYOR.get(sid, {}).get("Region", "-")
     asm = MASTER_SURVEYOR.get(sid, {}).get("ASM", "-")
@@ -1162,7 +1175,7 @@ if semua_data_gabungan:
                 git_path = "git"
 
             subprocess.run(f'"{git_path}" add .', cwd=BASE_DIR, shell=True, check=True)
-            subprocess.run(f'"{git_path}" commit -m "Auto-remove language switcher and revert to clean Indonesian UI pada {waktu_sekarang}"', cwd=BASE_DIR, shell=True, check=True)
+            subprocess.run(f'"{git_path}" commit -m "Auto-aggregate quantity on Excel output and update dashboard pada {waktu_sekarang}"', cwd=BASE_DIR, shell=True, check=True)
             subprocess.run(f'"{git_path}" push', cwd=BASE_DIR, shell=True, check=True)
             print("[SUKSES] Perubahan berhasil di-push otomatis ke GitHub! 🎉")
         except subprocess.CalledProcessError as git_err:
