@@ -533,21 +533,21 @@ if semua_data_gabungan:
                 </div>
 
                 <div class="summary-cards">
-                    <div class="scard">
-                        <h4>Total Target Distribusi Sildenafil Package</h4>
-                        <div id="sumTargetPkg" class="sval">0</div>
+                    <div class="scard" style="background-color: #fef2f2; border-color: #fca5a5;">
+                        <h4 style="color: #991b1b;">Total Target Distribusi Sildenafil Package</h4>
+                        <div id="sumTargetPkg" class="sval" style="color: #b91c1c;">0</div>
                     </div>
-                    <div class="scard">
-                        <h4>Total Actual Distribusi Sildenafil Package</h4>
-                        <div id="sumActualPkg" class="sval" style="color: #2563eb;">0 <small id="sumPkgPct" style="font-size:12px; font-weight:normal; color:#059669;">(0.0% vs Target)</small></div>
+                    <div class="scard" style="background-color: #fef2f2; border-color: #fca5a5;">
+                        <h4 style="color: #991b1b;">Total Actual Distribusi Sildenafil Package</h4>
+                        <div id="sumActualPkg" class="sval" style="color: #b91c1c;">0 <small id="sumPkgPct" style="font-size:12px; font-weight:normal; color:#991b1b;">(0.0% vs Target)</small></div>
                     </div>
-                    <div class="scard">
-                        <h4>Total Target Customer</h4>
-                        <div id="sumTargetCust" class="sval">0</div>
+                    <div class="scard" style="background-color: #eff6ff; border-color: #93c5fd;">
+                        <h4 style="color: #1e40af;">Total Target Customer</h4>
+                        <div id="sumTargetCust" class="sval" style="color: #1d4ed8;">0</div>
                     </div>
-                    <div class="scard">
-                        <h4>Total Actual Customer</h4>
-                        <div id="sumActualCust" class="sval" style="color: #059669;">0 <small id="sumCustPct" style="font-size:12px; font-weight:normal; color:#059669;">(0.0% vs Target)</small></div>
+                    <div class="scard" style="background-color: #eff6ff; border-color: #93c5fd;">
+                        <h4 style="color: #1e40af;">Total Actual Customer</h4>
+                        <div id="sumActualCust" class="sval" style="color: #1d4ed8;">0 <small id="sumCustPct" style="font-size:12px; font-weight:normal; color:#1e40af;">(0.0% vs Target)</small></div>
                     </div>
                 </div>
 
@@ -1163,7 +1163,7 @@ if semua_data_gabungan:
                 git_path = "git"
 
             subprocess.run(f'"{git_path}" add .', cwd=BASE_DIR, shell=True, check=True)
-            subprocess.run(f'"{git_path}" commit -m "Auto-update comma style and google maps navigation link pada {waktu_sekarang}"', cwd=BASE_DIR, shell=True, check=True)
+            subprocess.run(f'"{git_path}" commit -m "Auto-update card theme colors for Sutra and Andalan pada {waktu_sekarang}"', cwd=BASE_DIR, shell=True, check=True)
             subprocess.run(f'"{git_path}" push', cwd=BASE_DIR, shell=True, check=True)
             print("[SUKSES] Perubahan berhasil di-push otomatis ke GitHub! 🎉")
         except subprocess.CalledProcessError as git_err:
