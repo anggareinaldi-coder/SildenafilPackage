@@ -363,24 +363,40 @@ if semua_data_gabungan:
                 "asm": info["ASM"]
             })
 
+        # Calculate MAX(RAW!$A:$A) across all source excel files robustly
         latest_dt = None
-        for item in list_data_peta:
-            ts = item["timestamp"]
-            for fmt in ("%Y-%m-%d %H:%M:%S", "%Y-%m-%d %H:%M", "%d/%m/%Y %H:%M:%S", "%d/%m/%Y %H:%M", "%Y-%m-%d"):
-                try:
-                    parsed = datetime.strptime(str(ts).strip(), fmt)
-                    if latest_dt is None or parsed > latest_dt:
-                        latest_dt = parsed
-                    break
-                except ValueError:
-                    continue
+        for fn_src in files_in_source:
+            p_src = os.path.join(DIR_SOURCE, fn_src)
+            try:
+                wb_tmp = load_workbook(p_src, data_only=True)
+                ws_tmp = wb_tmp.active
+                for r_idx in range(3, ws_tmp.max_row + 1):
+                    val_t = ws_tmp.cell(row=r_idx, column=1).value
+                    if val_t is not None:
+                        if isinstance(val_t, datetime):
+                            if latest_dt is None or val_t > latest_dt:
+                                latest_dt = val_t
+                        else:
+                            ts_str = str(val_t).strip()
+                            for fmt in ("%Y-%m-%d %H:%M:%S", "%Y-%m-%d %H:%M", "%d/%m/%Y %H:%M:%S", "%d/%m/%Y %H:%M", "%Y-%m-%d", "%Y-%m-%d %H:%M:%S.%f"):
+                                try:
+                                    parsed = datetime.strptime(ts_str, fmt)
+                                    if latest_dt is None or parsed > latest_dt:
+                                        latest_dt = parsed
+                                    break
+                                except ValueError:
+                                    continue
+            except Exception as e_ts:
+                print(f"[WARNING] Gagal membaca timestamp dari {fn_src}: {e_ts}")
 
         if latest_dt:
             months_en = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
             m_str = months_en[latest_dt.month - 1]
             last_update_str = f"{latest_dt.strftime('%d')} {m_str} {latest_dt.strftime('%Y - %H:%M')}"
         else:
-            last_update_str = "-"
+            now_dt = datetime.now()
+            months_en = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+            last_update_str = f"{now_dt.strftime('%d')} {months_en[now_dt.month - 1]} {now_dt.strftime('%Y - %H:%M')}"
 
         payload_data = {
             "surveyData": list_data_peta,
@@ -402,16 +418,16 @@ if semua_data_gabungan:
         * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
         html, body { height: 100%; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f1f5f9; color: #1e293b; }
         
-        /* Navigation / Header */
-        header { height: 60px; background-color: #ffffff; color: #0f172a; padding: 0 20px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #cbd5e1; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); position: fixed; top: 0; left: 0; right: 0; z-index: 3000; }
-        header h1 { margin: 0; font-size: 16px; font-weight: 600; display: flex; align-items: center; gap: 8px; }
-        .nav-buttons { display: flex; gap: 10px; }
-        .nav-btn { background: #e2e8f0; color: #334155; border: none; padding: 6px 14px; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer; transition: all 0.2s; }
+        /* Navigation / Header - Responsive */
+        header { min-height: 60px; background-color: #ffffff; color: #0f172a; padding: 10px 20px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #cbd5e1; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); position: fixed; top: 0; left: 0; right: 0; z-index: 3000; flex-wrap: wrap; gap: 10px; }
+        header h1 { margin: 0; font-size: 15px; font-weight: 600; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+        .nav-buttons { display: flex; gap: 8px; flex-wrap: wrap; }
+        .nav-btn { background: #e2e8f0; color: #334155; border: none; padding: 6px 12px; border-radius: 6px; font-size: 11px; font-weight: 600; cursor: pointer; transition: all 0.2s; white-space: nowrap; }
         .nav-btn.active { background: #2563eb; color: white; }
         .nav-btn:hover { opacity: 0.9; }
 
         /* Views Container */
-        .view-container { margin-top: 60px; height: calc(100vh - 60px); width: 100vw; position: relative; overflow: hidden; }
+        .view-container { margin-top: 70px; height: calc(100vh - 70px); width: 100vw; position: relative; overflow: hidden; }
         .view-page { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: none; background: #f1f5f9; overflow-y: auto; }
         .view-page.active { display: flex; flex-direction: column; }
 
@@ -453,6 +469,10 @@ if semua_data_gabungan:
         #map { flex: 1; height: 100%; width: 100%; z-index: 1; }
 
         @media (max-width: 768px) {
+            header { padding: 10px 12px; flex-direction: column; align-items: flex-start; gap: 8px; }
+            .nav-buttons { width: 100%; justify-content: space-between; }
+            .nav-btn { flex: 1; text-align: center; padding: 8px 6px; font-size: 11px; }
+            .view-container { margin-top: 115px; height: calc(100vh - 115px); }
             .map-layout { flex-direction: column-reverse; }
             .sidebar { width: 100%; height: 45%; max-height: 250px; }
             #map { height: 55% !important; }
@@ -464,10 +484,10 @@ if semua_data_gabungan:
 </head>
 <body>
     <header>
-        <h1>🗺️ Sildenafil Package Dashboard <span style="font-size: 11px; font-weight: normal; color: #64748b; margin-left: 12px; background: #f8fafc; padding: 4px 8px; border: 1px solid #cbd5e1; border-radius: 4px;">🕒 Last Update: <span id="lastUpdateSpan"></span></span></h1>
+        <h1>🗺️ Sildenafil Package Dashboard <span style="font-size: 11px; font-weight: normal; color: #64748b; margin-left: 6px; background: #f8fafc; padding: 3px 6px; border: 1px solid #cbd5e1; border-radius: 4px; white-space: nowrap;">🕒 Last Update: <span id="lastUpdateSpan"></span></span></h1>
         <div class="nav-buttons">
             <button id="btnTableView" class="nav-btn active" onclick="switchView('table')">📊 Tabel Target vs Actual</button>
-            <button id="btnMapView" class="nav-btn" onclick="switchView('map')">📍 Visualisasi Sebaran Titik Distribusi</button>
+            <button id="btnMapView" class="nav-btn" onclick="switchView('map')">📍 Visualisasi Sebaran</button>
         </div>
     </header>
 
@@ -506,7 +526,7 @@ if semua_data_gabungan:
                     </div>
                     <div style="display: flex; align-items: flex-end; gap: 8px;">
                         <button onclick="resetTableFilters()" style="padding: 8px 14px; background: #cbd5e1; border: none; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer;">Reset Filter</button>
-                        <button onclick="downloadFilteredExcel()" style="padding: 8px 14px; background: #059669; color: white; border: none; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 6px;">📥 Unduh Excel Sesuai Filter</button>
+                        <button onclick="downloadFilteredExcel()" style="padding: 8px 14px; background: #059669; color: white; border: none; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 6px;">📥 Unduh Excel</button>
                     </div>
                 </div>
 
@@ -1138,7 +1158,7 @@ if semua_data_gabungan:
                 git_path = "git"
 
             subprocess.run(f'"{git_path}" add .', cwd=BASE_DIR, shell=True, check=True)
-            subprocess.run(f'"{git_path}" commit -m "Auto-update last update timestamp pada {waktu_sekarang}"', cwd=BASE_DIR, shell=True, check=True)
+            subprocess.run(f'"{git_path}" commit -m "Auto-update max timestamp and mobile responsive header pada {waktu_sekarang}"', cwd=BASE_DIR, shell=True, check=True)
             subprocess.run(f'"{git_path}" push', cwd=BASE_DIR, shell=True, check=True)
             print("[SUKSES] Perubahan berhasil di-push otomatis ke GitHub! 🎉")
         except subprocess.CalledProcessError as git_err:
