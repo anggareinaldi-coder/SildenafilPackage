@@ -180,7 +180,9 @@ for nama_file_excel in files_in_source:
             if not os.path.exists(folder_tujuan_foto):
                 os.makedirs(folder_tujuan_foto)
 
-            nama_file_foto = f"{surveyee_id_clean}_{surveyee_clean}_{timestamp_clean}_r{row}.jpg"
+            # Batasi panjang nama file foto untuk mencegah error "Filename too long"
+            surveyee_clean_short = surveyee_clean[:40].strip()
+            nama_file_foto = f"{surveyee_id_clean}_{surveyee_clean_short}_{timestamp_clean}_r{row}.jpg"
             path_simpan_foto = os.path.join(folder_tujuan_foto, nama_file_foto)
             path_simpan_relatif = f"image/{surveyor_clean}/{surveyee_clean}/{nama_file_foto}".replace(os.sep, "/")
 
@@ -1168,16 +1170,13 @@ if semua_data_gabungan:
             if "source/" not in ignore_content:
                 with open(gitignore_path, "a", encoding="utf-8") as gf:
                     gf.write("\nsource/\n")
-            if "image/" not in ignore_content:
-                with open(gitignore_path, "a", encoding="utf-8") as gf:
-                    gf.write("image/\n")
 
             git_path = r"C:\Program Files\Git\cmd\git.exe"
             if not os.path.exists(git_path):
                 git_path = "git"
 
             subprocess.run(f'"{git_path}" add .', cwd=BASE_DIR, shell=True, check=True)
-            subprocess.run(f'"{git_path}" commit -m "Auto-aggregate quantity on Excel output and update dashboard pada {waktu_sekarang}"', cwd=BASE_DIR, shell=True, check=True)
+            subprocess.run(f'"{git_path}" commit -m "Auto-aggregate quantity and fix image filename truncation pada {waktu_sekarang}"', cwd=BASE_DIR, shell=True, check=True)
             subprocess.run(f'"{git_path}" push', cwd=BASE_DIR, shell=True, check=True)
             print("[SUKSES] Perubahan berhasil di-push otomatis ke GitHub! 🎉")
         except subprocess.CalledProcessError as git_err:
