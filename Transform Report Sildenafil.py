@@ -270,7 +270,6 @@ for nama_file_excel in files_in_source:
 
 print(f"Total outlet unik setelah agregasi: {len(outlet_aggregated_data)} outlet")
 
-# Cari indeks kolom Qty agar hasil agregasi ikut di-update ke file Excel utama
 qty_col_indices = []
 for idx_col, header in enumerate(kolom_headers):
     header_name = str(header).lower() if header else ""
@@ -1169,6 +1168,9 @@ if semua_data_gabungan:
             if "source/" not in ignore_content:
                 with open(gitignore_path, "a", encoding="utf-8") as gf:
                     gf.write("\nsource/\n")
+            if "image/" not in ignore_content:
+                with open(gitignore_path, "a", encoding="utf-8") as gf:
+                    gf.write("image/\n")
 
             git_path = r"C:\Program Files\Git\cmd\git.exe"
             if not os.path.exists(git_path):
