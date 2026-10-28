@@ -1,12 +1,19 @@
 import os
 import re
+import sys
+import shutil
 from openpyxl import load_workbook
 import pandas as pd
 from datetime import datetime
 import json
 import subprocess
 
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+# Mengatur BASE_DIR agar kompatibel saat dijalankan sebagai script .py maupun file .exe (PyInstaller)
+if getattr(sys, 'frozen', False):
+    BASE_DIR = os.path.dirname(os.path.abspath(sys.executable))
+else:
+    BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
 DIR_SOURCE = os.path.join(BASE_DIR, "source")
 DIR_IMAGE = os.path.join(BASE_DIR, "image")
 DIR_OUTPUT = os.path.join(BASE_DIR, "output")
@@ -176,7 +183,7 @@ for nama_file_excel in files_in_source:
             surveyee_id_clean = re.sub(r'[\/*?:"<>|]', '', surveyee_id_str).strip(' .')
             timestamp_clean = re.sub(r'[\s:]', '_', timestamp_str).strip(' .')
 
-            # Batasi panjang nama folder & file untuk mencegah error "Filename too long" di Git/Windows
+            # Batasi panjang nama folder & file untuk mencegah error "Filename too long" di Windows/Git
             surveyee_clean_short = surveyee_clean[:35].strip()
 
             folder_tujuan_foto = os.path.join(DIR_IMAGE, surveyor_clean, surveyee_clean_short)
@@ -1158,30 +1165,34 @@ if semua_data_gabungan:
         print(f"10. File Log Detail disimpan di               : '{FILE_LOG}'")
         print(f"11. File Peta HTML (Visualisasi Titik)        : '{FILE_HTML_PETA}'")
         
-        # --- AUTO-PUSH KE GITHUB ---
+        # --- AUTO-PUSH KE GITHUB (AMAN JIKA GIT TIDAK ADA) ---
         print("\n-> Sedang melakukan Auto-Sync & Push ke GitHub...")
-        try:
-            waktu_sekarang = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            
-            gitignore_path = os.path.join(BASE_DIR, ".gitignore")
-            ignore_content = ""
-            if os.path.exists(gitignore_path):
-                with open(gitignore_path, "r", encoding="utf-8") as gf:
-                    ignore_content = gf.read()
-            if "source/" not in ignore_content:
-                with open(gitignore_path, "a", encoding="utf-8") as gf:
-                    gf.write("\nsource/\n")
+        if shutil.which("git") is None:
+            print("[INFO] Program Git tidak terdeteksi di perangkat ini.")
+            print("[INFO] Proses Excel & Dashboard GIS Selesai dengan sukses! Fitur auto-push ke GitHub dilewati.")
+        else:
+            try:
+                waktu_sekarang = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                
+                gitignore_path = os.path.join(BASE_DIR, ".gitignore")
+                ignore_content = ""
+                if os.path.exists(gitignore_path):
+                    with open(gitignore_path, "r", encoding="utf-8") as gf:
+                        ignore_content = gf.read()
+                if "source/" not in ignore_content:
+                    with open(gitignore_path, "a", encoding="utf-8") as gf:
+                        gf.write("\nsource/\n")
 
-            git_path = r"C:\Program Files\Git\cmd\git.exe"
-            if not os.path.exists(git_path):
-                git_path = "git"
+                git_path = r"C:\Program Files\Git\cmd\git.exe"
+                if not os.path.exists(git_path):
+                    git_path = "git"
 
-            subprocess.run(f'"{git_path}" add .', cwd=BASE_DIR, shell=True, check=True)
-            subprocess.run(f'"{git_path}" commit -m "Auto-aggregate quantity on Excel output and update dashboard pada {waktu_sekarang}"', cwd=BASE_DIR, shell=True, check=True)
-            subprocess.run(f'"{git_path}" push', cwd=BASE_DIR, shell=True, check=True)
-            print("[SUKSES] Perubahan berhasil di-push otomatis ke GitHub! 🎉")
-        except subprocess.CalledProcessError as git_err:
-            print(f"[WARNING] Gagal auto-push ke GitHub: {git_err}")
+                subprocess.run(f'"{git_path}" add .', cwd=BASE_DIR, shell=True, check=True)
+                subprocess.run(f'"{git_path}" commit -m "Auto-aggregate quantity on Excel output and update dashboard pada {waktu_sekarang}"', cwd=BASE_DIR, shell=True, check=True)
+                subprocess.run(f'"{git_path}" push', cwd=BASE_DIR, shell=True, check=True)
+                print("[SUKSES] Perubahan berhasil di-push otomatis ke GitHub! 🎉")
+            except subprocess.CalledProcessError as git_err:
+                print(f"[WARNING] Gagal auto-push ke GitHub: {git_err}")
         
     except PermissionError as e:
         print(f"\n[ERROR] Gagal menyimpan file karena sedang dibuka di Microsoft Excel! ({e})")
