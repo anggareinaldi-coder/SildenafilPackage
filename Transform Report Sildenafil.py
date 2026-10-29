@@ -442,19 +442,26 @@ if semua_data_gabungan:
         /* Navigation / Header */
         header { min-height: 60px; background-color: #ffffff; color: #0f172a; padding: 10px 20px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #cbd5e1; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); position: fixed; top: 0; left: 0; right: 0; z-index: 3000; flex-wrap: wrap; gap: 10px; }
         header h1 { margin: 0; font-size: 15px; font-weight: 600; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+        .header-right { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
         .nav-buttons { display: flex; gap: 8px; flex-wrap: wrap; }
         .nav-btn { background: #e2e8f0; color: #334155; border: none; padding: 6px 12px; border-radius: 6px; font-size: 11px; font-weight: 600; cursor: pointer; transition: all 0.2s; white-space: nowrap; }
         .nav-btn.active { background: #2563eb; color: white; }
         .nav-btn:hover { opacity: 0.9; }
+
+        /* Lang Switcher Buttons */
+        .lang-switch { display: flex; gap: 4px; background: #e2e8f0; padding: 2px; border-radius: 6px; }
+        .lang-btn { background: transparent; border: none; padding: 4px 8px; font-size: 10px; font-weight: bold; cursor: pointer; border-radius: 4px; color: #475569; }
+        .lang-btn.active { background: #ffffff; color: #2563eb; box-shadow: 0 1px 2px rgba(0,0,0,0.05); }
 
         /* Views Container */
         .view-container { margin-top: 70px; height: calc(100vh - 70px); width: 100vw; position: relative; overflow: hidden; }
 
         @media (max-width: 768px) {
             header { padding: 10px 12px; flex-direction: column; align-items: flex-start; gap: 8px; }
+            .header-right { width: 100%; justify-content: space-between; }
             .nav-buttons { width: 100%; justify-content: space-between; }
             .nav-btn { flex: 1; text-align: center; padding: 8px 6px; font-size: 11px; }
-            .view-container { margin-top: 115px; height: calc(100vh - 115px); }
+            .view-container { margin-top: 130px; height: calc(100vh - 130px); }
         }
         .view-page { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: none; background: #f1f5f9; overflow-y: auto; }
         .view-page.active { display: flex; flex-direction: column; }
@@ -508,10 +515,19 @@ if semua_data_gabungan:
 </head>
 <body>
     <header>
-        <h1>🗺️ Sildenafil Package Dashboard <span style="font-size: 11px; font-weight: normal; color: #64748b; margin-left: 12px; background: #f8fafc; padding: 4px 8px; border: 1px solid #cbd5e1; border-radius: 4px;">🕒 Terakhir Diperbarui: <span id="lastUpdateSpan"></span></span></h1>
+        <h1 data-i18n="mainTitle">🗺️ Sildenafil Package Dashboard</h1>
+        <div class="header-right">
+            <span style="font-size: 11px; font-weight: normal; color: #64748b; background: #f8fafc; padding: 4px 8px; border: 1px solid #cbd5e1; border-radius: 4px;">
+                <span data-i18n="lastUpdatedLabel">🕒 Terakhir Diperbarui:</span> <span id="lastUpdateSpan"></span>
+            </span>
+            <div class="lang-switch">
+                <button id="btnLangId" class="lang-btn active" onclick="switchLanguage('id')">ID</button>
+                <button id="btnLangEn" class="lang-btn" onclick="switchLanguage('en')">EN</button>
+            </div>
+        </div>
         <div class="nav-buttons">
-            <button id="btnTableView" class="nav-btn active" onclick="switchView('table')">📊 Tabel Target vs Actual</button>
-            <button id="btnMapView" class="nav-btn" onclick="switchView('map')">📍 Visualisasi Sebaran Titik Distribusi</button>
+            <button id="btnTableView" class="nav-btn active" onclick="switchView('table')" data-i18n="btnTable">📊 Tabel Target vs Actual</button>
+            <button id="btnMapView" class="nav-btn" onclick="switchView('map')" data-i18n="btnMap">📍 Visualisasi Sebaran Titik Distribusi</button>
         </div>
     </header>
 
@@ -521,21 +537,21 @@ if semua_data_gabungan:
             <div class="table-content">
                 <div class="filter-bar">
                     <div class="filter-field">
-                        <label for="tableRegionFilter">Filter Region:</label>
+                        <label for="tableRegionFilter" data-i18n="filterRegion">Filter Region:</label>
                         <select id="tableRegionFilter" onchange="onTableRegionChange()">
-                            <option value="ALL">-- Semua Region --</option>
+                            <option value="ALL" data-i18n="optAllRegions">-- Semua Region --</option>
                         </select>
                     </div>
                     <div class="filter-field">
-                        <label for="tableAsmFilter">Filter ASM:</label>
+                        <label for="tableAsmFilter" data-i18n="filterAsm">Filter ASM:</label>
                         <select id="tableAsmFilter" onchange="onTableAsmChange()">
-                            <option value="ALL">-- Semua ASM --</option>
+                            <option value="ALL" data-i18n="optAllAsms">-- Semua ASM --</option>
                         </select>
                     </div>
                     <div class="filter-field">
-                        <label for="tablePositionFilter">Filter Role:</label>
+                        <label for="tablePositionFilter" data-i18n="filterRole">Filter Role:</label>
                         <select id="tablePositionFilter" onchange="onTablePositionChange()">
-                            <option value="ALL">-- Semua Role --</option>
+                            <option value="ALL" data-i18n="optAllRoles">-- Semua Role --</option>
                             <option value="SBD">SBD</option>
                             <option value="MSD">MSD</option>
                             <option value="ASM">ASM</option>
@@ -543,32 +559,32 @@ if semua_data_gabungan:
                         </select>
                     </div>
                     <div class="filter-field">
-                        <label for="tableSurveyorFilter">Filter Surveyor:</label>
+                        <label for="tableSurveyorFilter" data-i18n="filterSurveyor">Filter Surveyor:</label>
                         <select id="tableSurveyorFilter" onchange="renderTableData()">
-                            <option value="ALL">-- Semua Surveyor --</option>
+                            <option value="ALL" data-i18n="optAllSurveyors">-- Semua Surveyor --</option>
                         </select>
                     </div>
                     <div style="display: flex; align-items: flex-end; gap: 8px;">
-                        <button onclick="resetTableFilters()" style="padding: 8px 14px; background: #cbd5e1; border: none; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer;">Atur Ulang Filter</button>
-                        <button onclick="downloadFilteredExcel()" style="padding: 8px 14px; background: #059669; color: white; border: none; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 6px;">📥 Unduh Excel Sesuai Filter</button>
+                        <button onclick="resetTableFilters()" style="padding: 8px 14px; background: #cbd5e1; border: none; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer;" data-i18n="btnResetFilters">Atur Ulang Filter</button>
+                        <button onclick="downloadFilteredExcel()" style="padding: 8px 14px; background: #059669; color: white; border: none; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 6px;" data-i18n="btnDownloadExcel">📥 Unduh Excel Sesuai Filter</button>
                     </div>
                 </div>
 
                 <div class="summary-cards">
                     <div class="scard" style="background-color: #fef2f2; border-color: #fca5a5;">
-                        <h4 style="color: #991b1b;">Total Target Distribusi Sildenafil Package</h4>
+                        <h4 style="color: #991b1b;" data-i18n="cardTargetPkg">Total Target Distribusi Sildenafil Package</h4>
                         <div id="sumTargetPkg" class="sval" style="color: #b91c1c;">0</div>
                     </div>
                     <div class="scard" style="background-color: #fef2f2; border-color: #fca5a5;">
-                        <h4 style="color: #991b1b;">Total Actual Distribusi Sildenafil Package</h4>
+                        <h4 style="color: #991b1b;" data-i18n="cardActualPkg">Total Actual Distribusi Sildenafil Package</h4>
                         <div id="sumActualPkg" class="sval" style="color: #b91c1c;">0 <small id="sumPkgPct" style="font-size:12px; font-weight:normal; color:#b91c1c;">(0.0% vs Target)</small></div>
                     </div>
                     <div class="scard" style="background-color: #eff6ff; border-color: #93c5fd;">
-                        <h4 style="color: #1e40af;">Total Target Customer</h4>
+                        <h4 style="color: #1e40af;" data-i18n="cardTargetCust">Total Target Customer</h4>
                         <div id="sumTargetCust" class="sval" style="color: #1d4ed8;">0</div>
                     </div>
                     <div class="scard" style="background-color: #eff6ff; border-color: #93c5fd;">
-                        <h4 style="color: #1e40af;">Total Actual Customer</h4>
+                        <h4 style="color: #1e40af;" data-i18n="cardActualCust">Total Actual Customer</h4>
                         <div id="sumActualCust" class="sval" style="color: #1d4ed8;">0 <small id="sumCustPct" style="font-size:12px; font-weight:normal; color:#1e40af;">(0.0% vs Target)</small></div>
                     </div>
                 </div>
@@ -577,12 +593,12 @@ if semua_data_gabungan:
                     <table>
                         <thead>
                             <tr>
-                                <th>Region</th>
-                                <th>ASM</th>
-                                <th>Role</th>
-                                <th>Nama Surveyor</th>
-                                <th style="text-align: center;">Distribusi Sildenafil Package<br><small style="font-weight: normal; color: #64748b;">(Aktual vs Target)</small></th>
-                                <th style="text-align: center;">Customer Sildenafil Package<br><small style="font-weight: normal; color: #64748b;">(Aktual vs Target)</small></th>
+                                <th data-i18n="thRegion">Region</th>
+                                <th data-i18n="thAsm">ASM</th>
+                                <th data-i18n="thRole">Role</th>
+                                <th data-i18n="thSurveyorName">Nama Surveyor</th>
+                                <th style="text-align: center;"><span data-i18n="thDistPkg">Distribusi Sildenafil Package</span><br><small style="font-weight: normal; color: #64748b;" data-i18n="thActualVsTarget">(Aktual vs Target)</small></th>
+                                <th style="text-align: center;"><span data-i18n="thCustPkg">Customer Sildenafil Package</span><br><small style="font-weight: normal; color: #64748b;" data-i18n="thActualVsTarget">(Aktual vs Target)</small></th>
                             </tr>
                         </thead>
                         <tbody id="summaryTableBody">
@@ -591,7 +607,7 @@ if semua_data_gabungan:
                     </table>
                 </div>
                 <div style="margin-top: 15px; text-align: right;">
-                    <button onclick="switchView('map')" style="padding: 10px 20px; background: #2563eb; color: white; border: none; border-radius: 6px; font-weight: 600; cursor: pointer; font-size: 13px;">Buka Visualisasi Sebaran Titik Distribusi ➡️</button>
+                    <button onclick="switchView('map')" style="padding: 10px 20px; background: #2563eb; color: white; border: none; border-radius: 6px; font-weight: 600; cursor: pointer; font-size: 13px;" data-i18n="btnOpenMap">Buka Visualisasi Sebaran Titik Distribusi ➡️</button>
                 </div>
             </div>
         </div>
@@ -601,37 +617,37 @@ if semua_data_gabungan:
             <div class="map-layout">
                 <div class="sidebar">
                     <div class="sidebar-filter">
-                        <label for="mapRegionFilter">Filter Region:</label>
+                        <label for="mapRegionFilter" data-i18n="filterRegion">Filter Region:</label>
                         <select id="mapRegionFilter" onchange="onMapRegionChange()">
-                            <option value="ALL">-- Semua Region --</option>
+                            <option value="ALL" data-i18n="optAllRegions">-- Semua Region --</option>
                         </select>
                     </div>
                     <div class="sidebar-filter">
-                        <label for="mapAsmFilter">Filter ASM:</label>
+                        <label for="mapAsmFilter" data-i18n="filterAsm">Filter ASM:</label>
                         <select id="mapAsmFilter" onchange="onMapAsmChange()">
-                            <option value="ALL">-- Semua ASM --</option>
+                            <option value="ALL" data-i18n="optAllAsms">-- Semua ASM --</option>
                         </select>
                     </div>
                     <div class="sidebar-filter">
-                        <label for="mapSurveyorFilter">Filter Surveyor:</label>
+                        <label for="mapSurveyorFilter" data-i18n="filterSurveyor">Filter Surveyor:</label>
                         <select id="mapSurveyorFilter" onchange="onMapSurveyorChange()">
-                            <option value="ALL">-- Semua Surveyor --</option>
+                            <option value="ALL" data-i18n="optAllSurveyors">-- Semua Surveyor --</option>
                         </select>
                     </div>
                     <div class="sidebar-filter">
-                        <label for="mapOutletFilter">Filter Outlet (Surveyee):</label>
+                        <label for="mapOutletFilter" data-i18n="filterOutlet">Filter Outlet (Surveyee):</label>
                         <select id="mapOutletFilter" onchange="onMapOutletChange()">
-                            <option value="ALL">-- Semua Outlet --</option>
+                            <option value="ALL" data-i18n="optAllOutlets">-- Semua Outlet --</option>
                         </select>
                     </div>
                     <div>
-                        <button onclick="resetMapFilters()" style="width: 100%; padding: 7px 10px; background: #cbd5e1; border: none; border-radius: 6px; font-size: 11px; font-weight: 600; cursor: pointer;">Atur Ulang Filter Peta</button>
+                        <button onclick="resetMapFilters()" style="width: 100%; padding: 7px 10px; background: #cbd5e1; border: none; border-radius: 6px; font-size: 11px; font-weight: 600; cursor: pointer;" data-i18n="btnResetMapFilters">Atur Ulang Filter Peta</button>
                     </div>
                     <div style="background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%); padding: 10px; border-radius: 8px; color: white;">
-                        <h3 style="margin: 0 0 2px 0; font-size: 10px; text-transform: uppercase;">Total Titik Sebaran Peta</h3>
+                        <h3 style="margin: 0 0 2px 0; font-size: 10px; text-transform: uppercase;" data-i18n="mapTotalStatTitle">Total Titik Sebaran Peta</h3>
                         <div id="mapTotalStat" class="val" style="font-size: 18px; font-weight: bold;">0</div>
                     </div>
-                    <div style="font-size: 11px; font-weight: 600; color: #64748b;">Daftar Outlet Terfilter:</div>
+                    <div style="font-size: 11px; font-weight: 600; color: #64748b;" data-i18n="mapOutletListTitle">Daftar Outlet Terfilter:</div>
                     <div id="outletListContainer" class="outlet-list"></div>
                 </div>
                 <div id="map"></div>
@@ -643,6 +659,107 @@ if semua_data_gabungan:
         const rawPayload = __PAYLOAD_JSON_PLACEHOLDER__;
         const surveyData = rawPayload.surveyData || [];
         const masterSurveyor = rawPayload.masterSurveyor || [];
+
+        // --- Multi-Language Dictionary ---
+        const translations = {
+            id: {
+                mainTitle: "🗺️ Sildenafil Package Dashboard",
+                lastUpdatedLabel: "🕒 Terakhir Diperbarui:",
+                btnTable: "📊 Tabel Target vs Actual",
+                btnMap: "📍 Visualisasi Sebaran Titik Distribusi",
+                filterRegion: "Filter Region:",
+                filterAsm: "Filter ASM:",
+                filterRole: "Filter Role:",
+                filterSurveyor: "Filter Surveyor:",
+                filterOutlet: "Filter Outlet (Surveyee):",
+                optAllRegions: "-- Semua Region --",
+                optAllAsms: "-- Semua ASM --",
+                optAllRoles: "-- Semua Role --",
+                optAllSurveyors: "-- Semua Surveyor --",
+                optAllOutlets: "-- Semua Outlet --",
+                btnResetFilters: "Atur Ulang Filter",
+                btnDownloadExcel: "📥 Unduh Excel Sesuai Filter",
+                cardTargetPkg: "Total Target Distribusi Sildenafil Package",
+                cardActualPkg: "Total Actual Distribusi Sildenafil Package",
+                cardTargetCust: "Total Target Customer",
+                cardActualCust: "Total Actual Customer",
+                thRegion: "Region",
+                thAsm: "ASM",
+                thRole: "Role",
+                thSurveyorName: "Nama Surveyor",
+                thDistPkg: "Distribusi Sildenafil Package",
+                thCustPkg: "Customer Sildenafil Package",
+                thActualVsTarget: "(Aktual vs Target)",
+                btnOpenMap: "Buka Visualisasi Sebaran Titik Distribusi ➡️",
+                btnResetMapFilters: "Atur Ulang Filter Peta",
+                mapTotalStatTitle: "Total Titik Sebaran Peta",
+                mapOutletListTitle: "Daftar Outlet Terfilter:",
+                mapPopupMapsBtn: "🗺️ Buka Rute ke Google Maps",
+                mapPopupNoPhoto: "Tidak ada foto.",
+                mapPopupPhotoLabel: "Foto"
+            },
+            en: {
+                mainTitle: "🗺️ Sildenafil Package Dashboard",
+                lastUpdatedLabel: "🕒 Last Updated:",
+                btnTable: "📊 Target vs Actual Table",
+                btnMap: "📍 Distribution Map Visualization",
+                filterRegion: "Filter Region:",
+                filterAsm: "Filter ASM:",
+                filterRole: "Filter Role:",
+                filterSurveyor: "Filter Surveyor:",
+                filterOutlet: "Filter Outlet (Surveyee):",
+                optAllRegions: "-- All Regions --",
+                optAllAsms: "-- All ASMs --",
+                optAllRoles: "-- All Roles --",
+                optAllSurveyors: "-- All Surveyors --",
+                optAllOutlets: "-- All Outlets --",
+                btnResetFilters: "Reset Filters",
+                btnDownloadExcel: "📥 Download Filtered Excel",
+                cardTargetPkg: "Total Sildenafil Package Distribution Target",
+                cardActualPkg: "Total Actual Sildenafil Package Distribution",
+                cardTargetCust: "Total Customer Target",
+                cardActualCust: "Total Actual Customer",
+                thRegion: "Region",
+                thAsm: "ASM",
+                thRole: "Role",
+                thSurveyorName: "Surveyor Name",
+                thDistPkg: "Sildenafil Package Distribution",
+                thCustPkg: "Sildenafil Package Customers",
+                thActualVsTarget: "(Actual vs Target)",
+                btnOpenMap: "Open Distribution Map Visualization ➡️",
+                btnResetMapFilters: "Reset Map Filters",
+                mapTotalStatTitle: "Total Map Distribution Points",
+                mapOutletListTitle: "Filtered Outlet List:",
+                mapPopupMapsBtn: "🗺️ Open Route in Google Maps",
+                mapPopupNoPhoto: "No photos available.",
+                mapPopupPhotoLabel: "Photo"
+            }
+        };
+
+        let currentLang = 'id';
+
+        function switchLanguage(lang) {
+            currentLang = lang;
+            document.getElementById('btnLangId').classList.toggle('active', lang === 'id');
+            document.getElementById('btnLangEn').classList.toggle('active', lang === 'en');
+            
+            document.querySelectorAll('[data-i18n]').forEach(el => {
+                const key = el.getAttribute('data-i18n');
+                if (translations[currentLang][key]) {
+                    el.textContent = translations[currentLang][key];
+                }
+            });
+
+            renderTableData();
+            if (map) {
+                renderMapDashboard(
+                    document.getElementById('mapRegionFilter').value,
+                    document.getElementById('mapAsmFilter').value,
+                    document.getElementById('mapSurveyorFilter').value,
+                    document.getElementById('mapOutletFilter').value
+                );
+            }
+        }
 
         const targetPerPerson = {
             "SBD": { pkg: 600, cust: 300 },
@@ -698,7 +815,8 @@ if semua_data_gabungan:
         function populateTableRegionDropdown() {
             const regSelect = document.getElementById('tableRegionFilter');
             const currentVal = regSelect.value;
-            regSelect.innerHTML = '<option value="ALL">-- Semua Region --</option>';
+            const defaultText = translations[currentLang].optAllRegions;
+            regSelect.innerHTML = `<option value="ALL">${defaultText}</option>`;
             const regions = [...new Set(masterSurveyor.map(m => m.region))].filter(r => r && r !== '-').sort();
             regions.forEach(r => {
                 const opt = document.createElement('option');
@@ -711,7 +829,8 @@ if semua_data_gabungan:
         function populateTableAsmDropdown(region) {
             const asmSelect = document.getElementById('tableAsmFilter');
             const currentVal = asmSelect.value;
-            asmSelect.innerHTML = '<option value="ALL">-- Semua ASM --</option>';
+            const defaultText = translations[currentLang].optAllAsms;
+            asmSelect.innerHTML = `<option value="ALL">${defaultText}</option>`;
             
             let subset = masterSurveyor;
             if (region && region !== 'ALL') {
@@ -729,7 +848,8 @@ if semua_data_gabungan:
         function populateTableSurveyorDropdown(region, asm, position) {
             const srvSelect = document.getElementById('tableSurveyorFilter');
             const currentVal = srvSelect.value;
-            srvSelect.innerHTML = '<option value="ALL">-- Semua Surveyor --</option>';
+            const defaultText = translations[currentLang].optAllSurveyors;
+            srvSelect.innerHTML = `<option value="ALL">${defaultText}</option>`;
 
             let subset = masterSurveyor;
             if (region && region !== 'ALL') subset = subset.filter(m => m.region === region);
@@ -885,6 +1005,8 @@ if semua_data_gabungan:
         function initMapFilters() {
             const regSelect = document.getElementById('mapRegionFilter');
             const regions = [...new Set(surveyData.map(item => item.region))].sort();
+            const defaultRegText = translations[currentLang].optAllRegions;
+            regSelect.innerHTML = `<option value="ALL">${defaultRegText}</option>`;
             regions.forEach(r => {
                 if(r && r !== '-') {
                     const opt = document.createElement('option');
@@ -900,7 +1022,8 @@ if semua_data_gabungan:
         function populateMapAsmDropdown(dataList) {
             const select = document.getElementById('mapAsmFilter');
             const currentVal = select.value;
-            select.innerHTML = '<option value="ALL">-- Semua ASM --</option>';
+            const defaultText = translations[currentLang].optAllAsms;
+            select.innerHTML = `<option value="ALL">${defaultText}</option>`;
             const asms = [...new Set(dataList.map(item => item.asm))].sort();
             asms.forEach(a => {
                 if(a && a !== '-') {
@@ -915,7 +1038,8 @@ if semua_data_gabungan:
         function populateMapSurveyorDropdown(dataList) {
             const select = document.getElementById('mapSurveyorFilter');
             const currentVal = select.value;
-            select.innerHTML = '<option value="ALL">-- Semua Surveyor --</option>';
+            const defaultText = translations[currentLang].optAllSurveyors;
+            select.innerHTML = `<option value="ALL">${defaultText}</option>`;
             const surveyors = [...new Set(dataList.map(item => item.surveyor))].sort();
             surveyors.forEach(s => {
                 if(s && s !== '-') {
@@ -933,7 +1057,8 @@ if semua_data_gabungan:
         function populateMapOutletDropdown(dataList) {
             const select = document.getElementById('mapOutletFilter');
             const currentVal = select.value;
-            select.innerHTML = '<option value="ALL">-- Semua Outlet --</option>';
+            const defaultText = translations[currentLang].optAllOutlets;
+            select.innerHTML = `<option value="ALL">${defaultText}</option>`;
             const outlets = [...new Set(dataList.map(item => item.surveyee))].sort();
             outlets.forEach(o => {
                 if(o && o !== '-') {
@@ -1058,18 +1183,19 @@ if semua_data_gabungan:
             const customIcon = L.divIcon({ className: 'custom-div-icon', html: `<div style="background-color: ${color}; width: 14px; height: 14px; border-radius: 50%; border: 2px solid white; box-shadow: 0 0 6px rgba(0,0,0,0.4);"></div>`, iconSize: [14, 14], iconAnchor: [7, 7] });
             
             let fotoHtml = '';
+            const t = translations[currentLang];
             if (item.foto_list && item.foto_list.length > 0) {
                 fotoHtml = '<div style="margin-top: 6px; text-align: center; max-height: 200px; overflow-y: auto;">';
                 item.foto_list.forEach((fPath, idx) => {
-                    fotoHtml += `<div style="margin-bottom: 4px;"><a href="${fPath}" target="_blank"><img src="${fPath}" width="200" style="border-radius: 4px; border: 1px solid #cbd5e1;"></a><small style="display:block; font-size:9px; color:#64748b;">Foto ${idx+1}</small></div>`;
+                    fotoHtml += `<div style="margin-bottom: 4px;"><a href="${fPath}" target="_blank"><img src="${fPath}" width="200" style="border-radius: 4px; border: 1px solid #cbd5e1;"></a><small style="display:block; font-size:9px; color:#64748b;">${t.mapPopupPhotoLabel} ${idx+1}</small></div>`;
                 });
                 fotoHtml += '</div>';
             } else {
-                fotoHtml = '<div style="margin-top: 6px; color: #64748b; font-style: italic; font-size: 10px;">Tidak ada foto.</div>';
+                fotoHtml = `<div style="margin-top: 6px; color: #64748b; font-style: italic; font-size: 10px;">${t.mapPopupNoPhoto}</div>`;
             }
             
             const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${item.lat},${item.lon}`;
-            const popupContent = `<b>${item.surveyee}</b><br>ID: <b>${item.surveyee_id}</b><br><hr style="margin: 4px 0;"><small>Surveyor: ${item.surveyor}<br>Region/ASM: ${item.region} / ${item.asm}<br><b>Latitude, Longitude:</b> ${item.lat}, ${item.lon}<br><b>Qty:</b> ${fmtNum(item.qty)}<br><b>Timestamp:</b> ${item.timestamp}</small><div style="margin-top: 6px;"><a href="${mapsUrl}" target="_blank" style="display: inline-block; padding: 4px 8px; background: #2563eb; color: white; text-decoration: none; border-radius: 4px; font-size: 11px; font-weight: 600;">🗺️ Buka Rute ke Google Maps</a></div>${fotoHtml}`;
+            const popupContent = `<b>${item.surveyee}</b><br>ID: <b>${item.surveyee_id}</b><br><hr style="margin: 4px 0;"><small>Surveyor: ${item.surveyor}<br>Region/ASM: ${item.region} / ${item.asm}<br><b>Latitude, Longitude:</b> ${item.lat}, ${item.lon}<br><b>Qty:</b> ${fmtNum(item.qty)}<br><b>Timestamp:</b> ${item.timestamp}</small><div style="margin-top: 6px;"><a href="${mapsUrl}" target="_blank" style="display: inline-block; padding: 4px 8px; background: #2563eb; color: white; text-decoration: none; border-radius: 4px; font-size: 11px; font-weight: 600;">${t.mapPopupMapsBtn}</a></div>${fotoHtml}`;
             const marker = L.marker([item.lat, item.lon], { icon: customIcon }).bindPopup(popupContent);
             markersLayer.addLayer(marker);
             return marker;
@@ -1111,7 +1237,7 @@ if semua_data_gabungan:
             });
 
             if (rowsToExport.length === 0) {
-                alert("Tidak ada data yang sesuai dengan filter yang dipilih.");
+                alert(currentLang === 'en' ? "No data matches the selected filters." : "Tidak ada data yang sesuai dengan filter yang dipilih.");
                 return;
             }
 
@@ -1124,9 +1250,9 @@ if semua_data_gabungan:
             let ss = String(now.getSeconds()).padStart(2, '0');
             let timestampStr = `${yyyy}${mm}${dd}_${hh}${min}${ss}`;
 
-            let regionPart = (regVal && regVal !== 'ALL') ? regVal : 'Nasional';
-            let asmPart = (asmVal && asmVal !== 'ALL') ? asmVal : 'SemuaASM';
-            let srvPart = (srvVal && srvVal !== 'ALL') ? srvVal : 'SemuaSurveyor';
+            let regionPart = (regVal && regVal !== 'ALL') ? regVal : (currentLang === 'en' ? 'National' : 'Nasional');
+            let asmPart = (asmVal && asmVal !== 'ALL') ? asmVal : (currentLang === 'en' ? 'AllASM' : 'SemuaASM');
+            let srvPart = (srvVal && srvVal !== 'ALL') ? srvVal : (currentLang === 'en' ? 'AllSurveyor' : 'SemuaSurveyor');
 
             let filename = `${regionPart} - ${asmPart} - ${srvPart} - ${timestampStr}.xlsx`;
 
