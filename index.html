@@ -322,6 +322,21 @@
                 }
             });
 
+            // Re-populate all dropdowns so their default "ALL" options update correctly to the selected language
+            populateTableRegionDropdown();
+            populateTableAsmDropdown(document.getElementById('tableRegionFilter').value);
+            populateTableSurveyorDropdown(
+                document.getElementById('tableRegionFilter').value,
+                document.getElementById('tableAsmFilter').value,
+                document.getElementById('tablePositionFilter').value
+            );
+
+            if (map) {
+                populateMapAsmDropdown(surveyData);
+                populateMapSurveyorDropdown(surveyData);
+                populateMapOutletDropdown(surveyData);
+            }
+
             renderTableData();
             if (map) {
                 renderMapDashboard(
