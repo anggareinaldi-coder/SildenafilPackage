@@ -183,7 +183,6 @@ for nama_file_excel in files_in_source:
             surveyee_id_clean = re.sub(r'[\/*?:"<>|]', '', surveyee_id_str).strip(' .')
             timestamp_clean = re.sub(r'[\s:]', '_', timestamp_str).strip(' .')
 
-            # Batasi panjang nama folder & file untuk mencegah error "Filename too long" di Windows/Git
             surveyee_clean_short = surveyee_clean[:35].strip()
 
             folder_tujuan_foto = os.path.join(DIR_IMAGE, surveyor_clean, surveyee_clean_short)
