@@ -538,7 +538,7 @@ if semua_data_gabungan:
     <header>
         <h1>
             <span data-i18n="mainTitle">🗺️ Sildenafil Package Dashboard</span>
-            <span style="display: inline-flex; gap: 6px; align-items: center; margin-left: 12px; vertical-align: middle;">
+            <span style="display: inline-flex; gap: 8px; align-items: center; margin-left: 12px; vertical-align: middle;">
                 __LOGO_50_TAG__
                 __LOGO_100_TAG__
             </span>
@@ -1315,9 +1315,9 @@ if semua_data_gabungan:
 </html>
 """
 
-        # Inject Logos & Payload into HTML Template
-        logo_50_tag = f'<img src="data:image/png;base64,{logo_50_base64}" alt="Sildenafil 50 mg" style="height: 30px; vertical-align: middle; object-fit: contain; border-radius: 4px;" />' if logo_50_base64 else ''
-        logo_100_tag = f'<img src="data:image/png;base64,{logo_100_base64}" alt="Sildenafil 100 mg" style="height: 30px; vertical-align: middle; object-fit: contain; border-radius: 4px;" />' if logo_100_base64 else ''
+        # Inject Logos (with 2x height size: 60px) & Payload into HTML Template
+        logo_50_tag = f'<img src="data:image/png;base64,{logo_50_base64}" alt="Sildenafil 50 mg" style="height: 60px; vertical-align: middle; object-fit: contain; border-radius: 4px;" />' if logo_50_base64 else ''
+        logo_100_tag = f'<img src="data:image/png;base64,{logo_100_base64}" alt="Sildenafil 100 mg" style="height: 60px; vertical-align: middle; object-fit: contain; border-radius: 4px;" />' if logo_100_base64 else ''
 
         final_html = html_template.replace("__LOGO_50_TAG__", logo_50_tag)
         final_html = final_html.replace("__LOGO_100_TAG__", logo_100_tag)
@@ -1362,7 +1362,7 @@ if semua_data_gabungan:
                     git_path = "git"
 
                 subprocess.run(f'"{git_path}" add .', cwd=BASE_DIR, shell=True, check=True)
-                subprocess.run(f'"{git_path}" commit -m "Add Sildenafil 50mg & 100mg logos to dashboard header pada {waktu_sekarang}"', cwd=BASE_DIR, shell=True, check=True)
+                subprocess.run(f'"{git_path}" commit -m "Enlarge Sildenafil logos size 2x in dashboard header pada {waktu_sekarang}"', cwd=BASE_DIR, shell=True, check=True)
                 subprocess.run(f'"{git_path}" push', cwd=BASE_DIR, shell=True, check=True)
                 print("[SUKSES] Perubahan berhasil di-push otomatis ke GitHub! 🎉")
             except subprocess.CalledProcessError as git_err:
