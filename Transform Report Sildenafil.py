@@ -2,6 +2,7 @@ import os
 import re
 import sys
 import shutil
+import base64
 from openpyxl import load_workbook
 import pandas as pd
 from datetime import datetime
@@ -17,6 +18,7 @@ else:
 DIR_SOURCE = os.path.join(BASE_DIR, "source")
 DIR_IMAGE = os.path.join(BASE_DIR, "image")
 DIR_OUTPUT = os.path.join(BASE_DIR, "output")
+DIR_LOGO = os.path.join(BASE_DIR, "Logo Image")
 FILE_MAPPING = os.path.join(BASE_DIR, "mapping_surveyor.xlsx")
 FILE_LOG = os.path.join(BASE_DIR, "log_proses_survey.xlsx")
 FILE_HTML_PETA = os.path.join(BASE_DIR, "index.html")
@@ -24,6 +26,26 @@ FILE_HTML_PETA = os.path.join(BASE_DIR, "index.html")
 for direktori in [DIR_SOURCE, DIR_IMAGE, DIR_OUTPUT]:
     if not os.path.exists(direktori):
         os.makedirs(direktori)
+
+# Load Logo Images as Base64 (if available)
+logo_50_base64 = ""
+logo_100_base64 = ""
+logo_50_path = os.path.join(DIR_LOGO, "Sildenafil 50 mg - Front View.png")
+logo_100_path = os.path.join(DIR_LOGO, "Sildenafil 100 mg - Front View.png")
+
+if os.path.exists(logo_50_path):
+    try:
+        with open(logo_50_path, "rb") as f_logo:
+            logo_50_base64 = base64.b64encode(f_logo.read()).decode("utf-8")
+    except Exception as e:
+        print(f"[WARNING] Gagal membaca logo 50 mg: {e}")
+
+if os.path.exists(logo_100_path):
+    try:
+        with open(logo_100_path, "rb") as f_logo:
+            logo_100_base64 = base64.b64encode(f_logo.read()).decode("utf-8")
+    except Exception as e:
+        print(f"[WARNING] Gagal membaca logo 100 mg: {e}")
 
 if not os.path.exists(FILE_MAPPING):
     df_template = pd.DataFrame(columns=["Surveyor ID", "Sales Name", "Position", "Region", "ASM"])
@@ -514,7 +536,13 @@ if semua_data_gabungan:
 </head>
 <body>
     <header>
-        <h1 data-i18n="mainTitle">🗺️ Sildenafil Package Dashboard</h1>
+        <h1>
+            <span data-i18n="mainTitle">🗺️ Sildenafil Package Dashboard</span>
+            <span style="display: inline-flex; gap: 6px; align-items: center; margin-left: 12px; vertical-align: middle;">
+                __LOGO_50_TAG__
+                __LOGO_100_TAG__
+            </span>
+        </h1>
         <div class="header-right">
             <span style="font-size: 11px; font-weight: normal; color: #64748b; background: #f8fafc; padding: 4px 8px; border: 1px solid #cbd5e1; border-radius: 4px;">
                 <span data-i18n="lastUpdatedLabel">🕒 Terakhir Diperbarui:</span> <span id="lastUpdateSpan"></span>
@@ -1287,7 +1315,13 @@ if semua_data_gabungan:
 </html>
 """
 
-        final_html = html_template.replace("__PAYLOAD_JSON_PLACEHOLDER__", data_json)
+        # Inject Logos & Payload into HTML Template
+        logo_50_tag = f'<img src="data:image/png;base64,{logo_50_base64}" alt="Sildenafil 50 mg" style="height: 30px; vertical-align: middle; object-fit: contain; border-radius: 4px;" />' if logo_50_base64 else ''
+        logo_100_tag = f'<img src="data:image/png;base64,{logo_100_base64}" alt="Sildenafil 100 mg" style="height: 30px; vertical-align: middle; object-fit: contain; border-radius: 4px;" />' if logo_100_base64 else ''
+
+        final_html = html_template.replace("__LOGO_50_TAG__", logo_50_tag)
+        final_html = final_html.replace("__LOGO_100_TAG__", logo_100_tag)
+        final_html = final_html.replace("__PAYLOAD_JSON_PLACEHOLDER__", data_json)
 
         with open(FILE_HTML_PETA, 'w', encoding='utf-8') as f_html:
             f_html.write(final_html)
@@ -1328,7 +1362,7 @@ if semua_data_gabungan:
                     git_path = "git"
 
                 subprocess.run(f'"{git_path}" add .', cwd=BASE_DIR, shell=True, check=True)
-                subprocess.run(f'"{git_path}" commit -m "Auto-aggregate quantity on Excel output and update dashboard pada {waktu_sekarang}"', cwd=BASE_DIR, shell=True, check=True)
+                subprocess.run(f'"{git_path}" commit -m "Add Sildenafil 50mg & 100mg logos to dashboard header pada {waktu_sekarang}"', cwd=BASE_DIR, shell=True, check=True)
                 subprocess.run(f'"{git_path}" push', cwd=BASE_DIR, shell=True, check=True)
                 print("[SUKSES] Perubahan berhasil di-push otomatis ke GitHub! 🎉")
             except subprocess.CalledProcessError as git_err:
