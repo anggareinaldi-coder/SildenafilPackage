@@ -461,7 +461,7 @@ if semua_data_gabungan:
         html, body { height: 100%; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f1f5f9; color: #1e293b; }
         
         /* Navigation / Header */
-        header { min-height: 60px; background-color: #ffffff; color: #0f172a; padding: 10px 20px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #cbd5e1; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); position: fixed; top: 0; left: 0; right: 0; z-index: 3000; flex-wrap: wrap; gap: 10px; }
+        header { min-height: 70px; background-color: #ffffff; color: #0f172a; padding: 12px 20px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #cbd5e1; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); position: fixed; top: 0; left: 0; right: 0; z-index: 3000; flex-wrap: wrap; gap: 10px; }
         header h1 { margin: 0; font-size: 15px; font-weight: 600; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
         .header-right { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
         .nav-buttons { display: flex; gap: 8px; flex-wrap: wrap; }
@@ -475,14 +475,14 @@ if semua_data_gabungan:
         .lang-btn.active { background: #ffffff; color: #2563eb; box-shadow: 0 1px 2px rgba(0,0,0,0.05); }
 
         /* Views Container */
-        .view-container { margin-top: 70px; height: calc(100vh - 70px); width: 100vw; position: relative; overflow: hidden; }
+        .view-container { margin-top: 120px; height: calc(100vh - 120px); width: 100vw; position: relative; overflow: hidden; }
 
         @media (max-width: 768px) {
             header { padding: 10px 12px; flex-direction: column; align-items: flex-start; gap: 8px; }
             .header-right { width: 100%; justify-content: space-between; }
             .nav-buttons { width: 100%; justify-content: space-between; }
             .nav-btn { flex: 1; text-align: center; padding: 8px 6px; font-size: 11px; }
-            .view-container { margin-top: 130px; height: calc(100vh - 130px); }
+            .view-container { margin-top: 170px; height: calc(100vh - 170px); }
         }
         .view-page { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: none; background: #f1f5f9; overflow-y: auto; }
         .view-page.active { display: flex; flex-direction: column; }
@@ -1315,7 +1315,7 @@ if semua_data_gabungan:
 </html>
 """
 
-        # Inject Logos (with 2x height size: 60px) & Payload into HTML Template
+        # Inject Logos (height: 60px) & Payload into HTML Template
         logo_50_tag = f'<img src="data:image/png;base64,{logo_50_base64}" alt="Sildenafil 50 mg" style="height: 60px; vertical-align: middle; object-fit: contain; border-radius: 4px;" />' if logo_50_base64 else ''
         logo_100_tag = f'<img src="data:image/png;base64,{logo_100_base64}" alt="Sildenafil 100 mg" style="height: 60px; vertical-align: middle; object-fit: contain; border-radius: 4px;" />' if logo_100_base64 else ''
 
@@ -1362,7 +1362,7 @@ if semua_data_gabungan:
                     git_path = "git"
 
                 subprocess.run(f'"{git_path}" add .', cwd=BASE_DIR, shell=True, check=True)
-                subprocess.run(f'"{git_path}" commit -m "Enlarge Sildenafil logos size 2x in dashboard header pada {waktu_sekarang}"', cwd=BASE_DIR, shell=True, check=True)
+                subprocess.run(f'"{git_path}" commit -m "Fix header margin and layout padding for enlarged logos pada {waktu_sekarang}"', cwd=BASE_DIR, shell=True, check=True)
                 subprocess.run(f'"{git_path}" push', cwd=BASE_DIR, shell=True, check=True)
                 print("[SUKSES] Perubahan berhasil di-push otomatis ke GitHub! 🎉")
             except subprocess.CalledProcessError as git_err:
