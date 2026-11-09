@@ -511,7 +511,7 @@ if semua_data_gabungan:
         th, td { padding: 10px 12px; border-bottom: 1px solid #e2e8f0; }
         th { background: #f8fafc; font-weight: 600; color: #475569; position: sticky; top: 0; z-index: 10; }
         tr:hover { background: #f8fafc; }
-        .total-row { background: #f8fafc !important; font-weight: bold; border-top: 2px solid #cbd5e1; border-bottom: 2px solid #cbd5e1; }
+        .total-row { background: #fefce8 !important; font-weight: bold; border-top: 2px solid #fde047; border-bottom: 2px solid #fde047; }
         .badge { padding: 3px 8px; border-radius: 4px; font-size: 10px; font-weight: 600; }
         .badge-sbd { background: #dbeafe; color: #1e40af; }
         .badge-msd { background: #fef3c7; color: #92400e; }
@@ -1042,7 +1042,7 @@ if semua_data_gabungan:
                 if (item.surveyee_id) actualCustMap[sid].add(item.surveyee_id);
             });
 
-            // --- 1. RENDER TABEL SUMMARY ATAS (DENGAN TOTAL NASIONAL & SORT DESCENDING) ---
+            // --- 1. RENDER TABEL SUMMARY ATAS (TOTAL NASIONAL HANYA MUNCUL JIKA TIDAK ADA FILTER REG/ASM SPESIFIK) ---
             const headRow = document.getElementById('summaryTableHeadRow');
             const summaryTbody = document.getElementById('summaryTableHeaderBody');
             summaryTbody.innerHTML = '';
@@ -1053,6 +1053,10 @@ if semua_data_gabungan:
             const thCustText = translations[currentLang].thCustPkg;
             const thActualTargetText = translations[currentLang].thActualVsTarget;
             const totalNatText = translations[currentLang].totalNational;
+
+            // Cek apakah sedang memfilter region atau asm tertentu
+            const isRegionFiltered = (regVal && regVal !== 'ALL');
+            const isAsmFiltered = (asmVal && asmVal !== 'ALL');
 
             if (currentSummaryMode === 'region') {
                 headRow.innerHTML = `
@@ -1082,47 +1086,48 @@ if semua_data_gabungan:
                 });
 
                 let regionList = Object.values(regionGroupMap);
-                
-                // Hitung Grand Total Nasional untuk Region
-                let natTgtPkg = 0, natActPkg = 0, natTgtCust = 0;
-                let natActCustSet = new Set();
-                regionList.forEach(g => {
-                    natTgtPkg += g.tgtPkg;
-                    natActPkg += g.actPkg;
-                    natTgtCust += g.tgtCust;
-                    filteredMasters.filter(m => m.region === g.region).forEach(m => {
-                        surveyData.filter(d => d.surveyor_id === m.surveyor_id).forEach(d => {
-                            if (d.surveyee_id) natActCustSet.add(d.surveyee_id);
-                        });
-                    });
-                });
 
-                // Urutkan berdasarkan persentase pencapaian (actPkg / tgtPkg) terbesar ke terkecil
+                // Urutkan berdasarkan persentase pencapaian terbesar ke terkecil
                 regionList.sort((a, b) => {
                     let pctA = a.tgtPkg > 0 ? (a.actPkg / a.tgtPkg) : 0;
                     let pctB = b.tgtPkg > 0 ? (b.actPkg / b.tgtPkg) : 0;
                     return pctB - pctA;
                 });
 
-                // Render Baris TOTAL NASIONAL di Paling Atas
-                let natPctPkg = natTgtPkg > 0 ? ((natActPkg / natTgtPkg) * 100).toFixed(1) : "0.0";
-                let natActCustCount = natActCustSet.size;
-                let natPctCust = natTgtCust > 0 ? ((natActCustCount / natTgtCust) * 100).toFixed(1) : "0.0";
+                // Render Baris TOTAL NASIONAL HANYA JIKA TIDAK ADA FILTER REGION ATAU ASM
+                if (!isRegionFiltered && !isAsmFiltered) {
+                    let natTgtPkg = 0, natActPkg = 0, natTgtCust = 0;
+                    let natActCustSet = new Set();
+                    regionList.forEach(g => {
+                        natTgtPkg += g.tgtPkg;
+                        natActPkg += g.actPkg;
+                        natTgtCust += g.tgtCust;
+                        filteredMasters.filter(m => m.region === g.region).forEach(m => {
+                            surveyData.filter(d => d.surveyor_id === m.surveyor_id).forEach(d => {
+                                if (d.surveyee_id) natActCustSet.add(d.surveyee_id);
+                            });
+                        });
+                    });
 
-                const trTotal = document.createElement('tr');
-                trTotal.className = 'total-row';
-                trTotal.innerHTML = `
-                    <td>⭐ <b>${totalNatText}</b></td>
-                    <td style="text-align: center;">
-                        <b>${fmtNum(natActPkg)}</b> / ${fmtNum(natTgtPkg)} <br>
-                        <small style="color: ${natActPkg >= natTgtPkg ? '#059669' : '#dc2626'}; font-weight: 600;">(${natPctPkg}%)</small>
-                    </td>
-                    <td style="text-align: center;">
-                        <b>${fmtNum(natActCustCount)}</b> / ${fmtNum(natTgtCust)} <br>
-                        <small style="color: ${natActCustCount >= natTgtCust ? '#059669' : '#dc2626'}; font-weight: 600;">(${natPctCust}%)</small>
-                    </td>
-                `;
-                summaryTbody.appendChild(trTotal);
+                    let natPctPkg = natTgtPkg > 0 ? ((natActPkg / natTgtPkg) * 100).toFixed(1) : "0.0";
+                    let natActCustCount = natActCustSet.size;
+                    let natPctCust = natTgtCust > 0 ? ((natActCustCount / natTgtCust) * 100).toFixed(1) : "0.0";
+
+                    const trTotal = document.createElement('tr');
+                    trTotal.className = 'total-row';
+                    trTotal.innerHTML = `
+                        <td>⭐ <b>${totalNatText}</b></td>
+                        <td style="text-align: center;">
+                            <b>${fmtNum(natActPkg)}</b> / ${fmtNum(natTgtPkg)} <br>
+                            <small style="color: ${natActPkg >= natTgtPkg ? '#059669' : '#dc2626'}; font-weight: 600;">(${natPctPkg}%)</small>
+                        </td>
+                        <td style="text-align: center;">
+                            <b>${fmtNum(natActCustCount)}</b> / ${fmtNum(natTgtCust)} <br>
+                            <small style="color: ${natActCustCount >= natTgtCust ? '#059669' : '#dc2626'}; font-weight: 600;">(${natPctCust}%)</small>
+                        </td>
+                    `;
+                    summaryTbody.appendChild(trTotal);
+                }
 
                 regionList.forEach(group => {
                     let aCust = group.actCustSet.size;
@@ -1181,20 +1186,6 @@ if semua_data_gabungan:
 
                 let asmList = Object.values(asmGroupMap);
 
-                // Hitung Grand Total Nasional untuk ASM
-                let natTgtPkgAsm = 0, natActPkgAsm = 0, natTgtCustAsm = 0;
-                let natActCustSetAsm = new Set();
-                asmList.forEach(g => {
-                    natTgtPkgAsm += g.tgtPkg;
-                    natActPkgAsm += g.actPkg;
-                    natTgtCustAsm += g.tgtCust;
-                    filteredMasters.filter(m => m.asm === g.asm && m.region === g.region).forEach(m => {
-                        surveyData.filter(d => d.surveyor_id === m.surveyor_id).forEach(d => {
-                            if (d.surveyee_id) natActCustSetAsm.add(d.surveyee_id);
-                        });
-                    });
-                });
-
                 // Urutkan berdasarkan persentase pencapaian terbesar ke terkecil
                 asmList.sort((a, b) => {
                     let pctA = a.tgtPkg > 0 ? (a.actPkg / a.tgtPkg) : 0;
@@ -1202,26 +1193,41 @@ if semua_data_gabungan:
                     return pctB - pctA;
                 });
 
-                // Render Baris TOTAL NASIONAL di Paling Atas
-                let natPctPkgAsm = natTgtPkgAsm > 0 ? ((natActPkgAsm / natTgtPkgAsm) * 100).toFixed(1) : "0.0";
-                let natActCustCountAsm = natActCustSetAsm.size;
-                let natPctCustAsm = natTgtCustAsm > 0 ? ((natActCustCountAsm / natTgtCustAsm) * 100).toFixed(1) : "0.0";
+                // Render Baris TOTAL NASIONAL HANYA JIKA TIDAK ADA FILTER REGION ATAU ASM
+                if (!isRegionFiltered && !isAsmFiltered) {
+                    let natTgtPkgAsm = 0, natActPkgAsm = 0, natTgtCustAsm = 0;
+                    let natActCustSetAsm = new Set();
+                    asmList.forEach(g => {
+                        natTgtPkgAsm += g.tgtPkg;
+                        natActPkgAsm += g.actPkg;
+                        natTgtCustAsm += g.tgtCust;
+                        filteredMasters.filter(m => m.asm === g.asm && m.region === g.region).forEach(m => {
+                            surveyData.filter(d => d.surveyor_id === m.surveyor_id).forEach(d => {
+                                if (d.surveyee_id) natActCustSetAsm.add(d.surveyee_id);
+                            });
+                        });
+                    });
 
-                const trTotalAsm = document.createElement('tr');
-                trTotalAsm.className = 'total-row';
-                trTotalAsm.innerHTML = `
-                    <td>⭐ <b>${totalNatText}</b></td>
-                    <td>-</td>
-                    <td style="text-align: center;">
-                        <b>${fmtNum(natActPkgAsm)}</b> / ${fmtNum(natTgtPkgAsm)} <br>
-                        <small style="color: ${natActPkgAsm >= natTgtPkgAsm ? '#059669' : '#dc2626'}; font-weight: 600;">(${natPctPkgAsm}%)</small>
-                    </td>
-                    <td style="text-align: center;">
-                        <b>${fmtNum(natActCustCountAsm)}</b> / ${fmtNum(natTgtCustAsm)} <br>
-                        <small style="color: ${natActCustCountAsm >= natTgtCustAsm ? '#059669' : '#dc2626'}; font-weight: 600;">(${natPctCustAsm}%)</small>
-                    </td>
-                `;
-                summaryTbody.appendChild(trTotalAsm);
+                    let natPctPkgAsm = natTgtPkgAsm > 0 ? ((natActPkgAsm / natTgtPkgAsm) * 100).toFixed(1) : "0.0";
+                    let natActCustCountAsm = natActCustSetAsm.size;
+                    let natPctCustAsm = natTgtCustAsm > 0 ? ((natActCustCountAsm / natTgtCustAsm) * 100).toFixed(1) : "0.0";
+
+                    const trTotalAsm = document.createElement('tr');
+                    trTotalAsm.className = 'total-row';
+                    trTotalAsm.innerHTML = `
+                        <td>⭐ <b>${totalNatText}</b></td>
+                        <td>-</td>
+                        <td style="text-align: center;">
+                            <b>${fmtNum(natActPkgAsm)}</b> / ${fmtNum(natTgtPkgAsm)} <br>
+                            <small style="color: ${natActPkgAsm >= natTgtPkgAsm ? '#059669' : '#dc2626'}; font-weight: 600;">(${natPctPkgAsm}%)</small>
+                        </td>
+                        <td style="text-align: center;">
+                            <b>${fmtNum(natActCustCountAsm)}</b> / ${fmtNum(natTgtCustAsm)} <br>
+                            <small style="color: ${natActCustCountAsm >= natTgtCustAsm ? '#059669' : '#dc2626'}; font-weight: 600;">(${natPctCustAsm}%)</small>
+                        </td>
+                    `;
+                    summaryTbody.appendChild(trTotalAsm);
+                }
 
                 asmList.forEach(group => {
                     let aCust = group.actCustSet.size;
@@ -1630,7 +1636,7 @@ if semua_data_gabungan:
                     git_path = "git"
 
                 subprocess.run(f'"{git_path}" add .', cwd=BASE_DIR, shell=True, check=True)
-                subprocess.run(f'"{git_path}" commit -m "Add National Total row and descending sorting by percentage on summary tables on {waktu_sekarang}"', cwd=BASE_DIR, shell=True, check=True)
+                subprocess.run(f'"{git_path}" commit -m "Hide national total when region/asm filtered, add star icon and distinct highlight background on {waktu_sekarang}"', cwd=BASE_DIR, shell=True, check=True)
                 subprocess.run(f'"{git_path}" push', cwd=BASE_DIR, shell=True, check=True)
                 print("[SUKSES] Perubahan berhasil di-push otomatis ke GitHub! 🎉")
             except subprocess.CalledProcessError as git_err:
