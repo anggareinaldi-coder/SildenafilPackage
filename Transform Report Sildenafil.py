@@ -499,6 +499,13 @@ if semua_data_gabungan:
         .scard h4 { margin: 0 0 5px 0; font-size: 11px; color: #64748b; text-transform: uppercase; }
         .scard .sval { font-size: 20px; font-weight: bold; color: #0f172a; }
 
+        /* Toggle Summary Buttons */
+        .summary-toggle-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; flex-wrap: wrap; gap: 10px; }
+        .summary-title { font-weight: 600; font-size: 14px; color: #0f172a; }
+        .toggle-group { display: flex; gap: 6px; background: #e2e8f0; padding: 3px; border-radius: 6px; }
+        .toggle-btn { background: transparent; border: none; padding: 5px 12px; font-size: 11px; font-weight: 600; cursor: pointer; border-radius: 4px; color: #475569; transition: all 0.2s; }
+        .toggle-btn.active { background: #2563eb; color: #ffffff; box-shadow: 0 1px 2px rgba(0,0,0,0.05); }
+
         .table-responsive { background: white; border-radius: 8px; border: 1px solid #cbd5e1; overflow-x: auto; box-shadow: 0 2px 4px rgba(0,0,0,0.02); margin-bottom: 25px; }
         table { width: 100%; border-collapse: collapse; text-align: left; font-size: 12px; }
         th, td { padding: 10px 12px; border-bottom: 1px solid #e2e8f0; }
@@ -616,19 +623,22 @@ if semua_data_gabungan:
                     </div>
                 </div>
 
-                <!-- TABEL SUMMARY KHUSUS PER ASM DI ATAS TABEL UTAMA -->
-                <div style="margin-bottom: 8px; font-weight: 600; font-size: 14px; color: #0f172a;" data-i18n="rsmSummaryTitle">📋 Ringkasan Performa Per ASM (Area Sales Manager)</div>
+                <!-- TABEL SUMMARY DENGAN PILIHAN TOGGLE (REGION / ASM) -->
+                <div class="summary-toggle-bar">
+                    <div id="summaryTableHeaderTitle" class="summary-title" data-i18n="regionSummaryTitle">📋 Ringkasan Performa Per Region</div>
+                    <div class="toggle-group">
+                        <button id="toggleRegionBtn" class="toggle-btn active" onclick="setSummaryMode('region')" data-i18n="toggleRegion">Region (RSM)</button>
+                        <button id="toggleAsmBtn" class="toggle-btn" onclick="setSummaryMode('asm')" data-i18n="toggleAsm">ASM</button>
+                    </div>
+                </div>
                 <div class="table-responsive">
                     <table>
                         <thead>
-                            <tr>
-                                <th data-i18n="thRegion">Region</th>
-                                <th data-i18n="thAsm">ASM</th>
-                                <th style="text-align: center;"><span data-i18n="thDistPkg">Distribusi Sildenafil Package</span><br><small style="font-weight: normal; color: #64748b;" data-i18n="thActualVsTarget">(Aktual vs Target)</small></th>
-                                <th style="text-align: center;"><span data-i18n="thCustPkg">Customer Sildenafil Package</span><br><small style="font-weight: normal; color: #64748b;" data-i18n="thActualVsTarget">(Aktual vs Target)</small></th>
+                            <tr id="summaryTableHeadRow">
+                                <!-- Dinamis via JS tergantung mode region / asm -->
                             </tr>
                         </thead>
-                        <tbody id="rsmSummaryTableBody">
+                        <tbody id="summaryTableHeaderBody">
                             <!-- Diisi via JavaScript -->
                         </tbody>
                     </table>
@@ -744,8 +754,11 @@ if semua_data_gabungan:
                 mapPopupMapsBtn: "🗺️ Buka Rute ke Google Maps",
                 mapPopupNoPhoto: "Tidak ada foto.",
                 mapPopupPhotoLabel: "Foto",
-                rsmSummaryTitle: "📋 Ringkasan Performa Per ASM (Area Sales Manager)",
-                detailTableTitle: "📊 Detail Performa Per Surveyor"
+                regionSummaryTitle: "📋 Ringkasan Performa Per Region (RSM)",
+                asmSummaryTitle: "📋 Ringkasan Performa Per ASM",
+                detailTableTitle: "📊 Detail Performa Per Surveyor",
+                toggleRegion: "Region (RSM)",
+                toggleAsm: "ASM"
             },
             en: {
                 mainTitle: "🗺️ Sildenafil Package Dashboard",
@@ -782,12 +795,32 @@ if semua_data_gabungan:
                 mapPopupMapsBtn: "🗺️ Open Route in Google Maps",
                 mapPopupNoPhoto: "No photos available.",
                 mapPopupPhotoLabel: "Photo",
-                rsmSummaryTitle: "📋 Performance Summary Per ASM (Area Sales Manager)",
-                detailTableTitle: "📊 Detailed Performance Per Surveyor"
+                regionSummaryTitle: "📋 Performance Summary Per Region (RSM)",
+                asmSummaryTitle: "📋 Performance Summary Per ASM",
+                detailTableTitle: "📊 Detailed Performance Per Surveyor",
+                toggleRegion: "Region (RSM)",
+                toggleAsm: "ASM"
             }
         };
 
         let currentLang = 'id';
+        let currentSummaryMode = 'region'; // 'region' or 'asm'
+
+        function setSummaryMode(mode) {
+            currentSummaryMode = mode;
+            document.getElementById('toggleRegionBtn').classList.toggle('active', mode === 'region');
+            document.getElementById('toggleAsmBtn').classList.toggle('active', mode === 'asm');
+            
+            const titleEl = document.getElementById('summaryTableHeaderTitle');
+            if (mode === 'region') {
+                titleEl.setAttribute('data-i18n', 'regionSummaryTitle');
+                titleEl.textContent = translations[currentLang].regionSummaryTitle;
+            } else {
+                titleEl.setAttribute('data-i18n', 'asmSummaryTitle');
+                titleEl.textContent = translations[currentLang].asmSummaryTitle;
+            }
+            renderTableData();
+        }
 
         function switchLanguage(lang) {
             currentLang = lang;
@@ -1006,67 +1039,127 @@ if semua_data_gabungan:
                 if (item.surveyee_id) actualCustMap[sid].add(item.surveyee_id);
             });
 
-            // --- 1. RENDER TABEL SUMMARY PER ASM ---
-            const asmGroupMap = {};
-            filteredMasters.forEach(m => {
-                let asmName = m.asm || '-';
-                let regName = m.region || '-';
-                let asmKey = `${regName}___${asmName}`;
-                
-                if (!asmGroupMap[asmKey]) {
-                    asmGroupMap[asmKey] = {
-                        region: regName,
-                        asm: asmName,
-                        tgtPkg: 0,
-                        actPkg: 0,
-                        tgtCust: 0,
-                        actCustSet: new Set()
-                    };
+            // --- 1. RENDER TABEL SUMMARY ATAS (BERDASARKAN TOGGLE: REGION / ASM) ---
+            const headRow = document.getElementById('summaryTableHeadRow');
+            const summaryTbody = document.getElementById('summaryTableHeaderBody');
+            summaryTbody.innerHTML = '';
+
+            const thRegText = translations[currentLang].thRegion;
+            const thAsmText = translations[currentLang].thAsm;
+            const thDistText = translations[currentLang].thDistPkg;
+            const thCustText = translations[currentLang].thCustPkg;
+            const thActualTargetText = translations[currentLang].thActualVsTarget;
+
+            if (currentSummaryMode === 'region') {
+                headRow.innerHTML = `
+                    <th>${thRegText}</th>
+                    <th style="text-align: center;"><span>${thDistText}</span><br><small style="font-weight: normal; color: #64748b;">${thActualTargetText}</small></th>
+                    <th style="text-align: center;"><span>${thCustText}</span><br><small style="font-weight: normal; color: #64748b;">${thActualTargetText}</small></th>
+                `;
+
+                const regionGroupMap = {};
+                filteredMasters.forEach(m => {
+                    let regName = m.region || '-';
+                    if (!regionGroupMap[regName]) {
+                        regionGroupMap[regName] = { region: regName, tgtPkg: 0, actPkg: 0, tgtCust: 0, actCustSet: new Set() };
+                    }
+                    let pos = m.position.toUpperCase().trim();
+                    let tPkg = (targetPerPerson[pos] ? targetPerPerson[pos].pkg : 0);
+                    let tCust = (targetPerPerson[pos] ? targetPerPerson[pos].cust : 0);
+                    let aPkg = actualPkgMap[m.surveyor_id] || 0;
+
+                    regionGroupMap[regName].tgtPkg += tPkg;
+                    regionGroupMap[regName].actPkg += aPkg;
+                    regionGroupMap[regName].tgtCust += tCust;
+
+                    surveyData.filter(d => d.surveyor_id === m.surveyor_id).forEach(d => {
+                        if (d.surveyee_id) regionGroupMap[regName].actCustSet.add(d.surveyee_id);
+                    });
+                });
+
+                let sortedRegions = Object.keys(regionGroupMap).sort();
+                sortedRegions.forEach(regName => {
+                    let group = regionGroupMap[regName];
+                    let aCust = group.actCustSet.size;
+                    let pPkg = group.tgtPkg > 0 ? ((group.actPkg / group.tgtPkg) * 100).toFixed(1) : "0.0";
+                    let pCust = group.tgtCust > 0 ? ((aCust / group.tgtCust) * 100).toFixed(1) : "0.0";
+
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td><b>${group.region}</b></td>
+                        <td style="text-align: center;">
+                            <b>${fmtNum(group.actPkg)}</b> / ${fmtNum(group.tgtPkg)} <br>
+                            <small style="color: ${group.actPkg >= group.tgtPkg ? '#059669' : '#dc2626'}; font-weight: 600;">(${pPkg}%)</small>
+                        </td>
+                        <td style="text-align: center;">
+                            <b>${fmtNum(aCust)}</b> / ${fmtNum(group.tgtCust)} <br>
+                            <small style="color: ${aCust >= group.tgtCust ? '#059669' : '#dc2626'}; font-weight: 600;">(${pCust}%)</small>
+                        </td>
+                    `;
+                    summaryTbody.appendChild(tr);
+                });
+
+                if (sortedRegions.length === 0) {
+                    summaryTbody.innerHTML = `<tr><td colspan="3" style="text-align: center; color: #64748b; font-style: italic;">Tidak ada data Region yang sesuai filter.</td></tr>`;
                 }
 
-                let pos = m.position.toUpperCase().trim();
-                let tPkg = (targetPerPerson[pos] ? targetPerPerson[pos].pkg : 0);
-                let tCust = (targetPerPerson[pos] ? targetPerPerson[pos].cust : 0);
-
-                let aPkg = actualPkgMap[m.surveyor_id] || 0;
-                
-                asmGroupMap[asmKey].tgtPkg += tPkg;
-                asmGroupMap[asmKey].actPkg += aPkg;
-                asmGroupMap[asmKey].tgtCust += tCust;
-
-                surveyData.filter(d => d.surveyor_id === m.surveyor_id).forEach(d => {
-                    if (d.surveyee_id) asmGroupMap[asmKey].actCustSet.add(d.surveyee_id);
-                });
-            });
-
-            const rsmTbody = document.getElementById('rsmSummaryTableBody');
-            rsmTbody.innerHTML = '';
-
-            let sortedAsmKeys = Object.keys(asmGroupMap).sort();
-            sortedAsmKeys.forEach(key => {
-                let group = asmGroupMap[key];
-                let aCust = group.actCustSet.size;
-                let pPkg = group.tgtPkg > 0 ? ((group.actPkg / group.tgtPkg) * 100).toFixed(1) : "0.0";
-                let pCust = group.tgtCust > 0 ? ((aCust / group.tgtCust) * 100).toFixed(1) : "0.0";
-
-                const trAsm = document.createElement('tr');
-                trAsm.innerHTML = `
-                    <td><b>${group.region}</b></td>
-                    <td><b>${group.asm}</b></td>
-                    <td style="text-align: center;">
-                        <b>${fmtNum(group.actPkg)}</b> / ${fmtNum(group.tgtPkg)} <br>
-                        <small style="color: ${group.actPkg >= group.tgtPkg ? '#059669' : '#dc2626'}; font-weight: 600;">(${pPkg}%)</small>
-                    </td>
-                    <td style="text-align: center;">
-                        <b>${fmtNum(aCust)}</b> / ${fmtNum(group.tgtCust)} <br>
-                        <small style="color: ${aCust >= group.tgtCust ? '#059669' : '#dc2626'}; font-weight: 600;">(${pCust}%)</small>
-                    </td>
+            } else {
+                headRow.innerHTML = `
+                    <th>${thRegText}</th>
+                    <th>${thAsmText}</th>
+                    <th style="text-align: center;"><span>${thDistText}</span><br><small style="font-weight: normal; color: #64748b;">${thActualTargetText}</small></th>
+                    <th style="text-align: center;"><span>${thCustText}</span><br><small style="font-weight: normal; color: #64748b;">${thActualTargetText}</small></th>
                 `;
-                rsmTbody.appendChild(trAsm);
-            });
 
-            if (sortedAsmKeys.length === 0) {
-                rsmTbody.innerHTML = `<tr><td colspan="4" style="text-align: center; color: #64748b; font-style: italic;">Tidak ada data ASM yang sesuai filter.</td></tr>`;
+                const asmGroupMap = {};
+                filteredMasters.forEach(m => {
+                    let asmName = m.asm || '-';
+                    let regName = m.region || '-';
+                    let asmKey = `${regName}___${asmName}`;
+                    
+                    if (!asmGroupMap[asmKey]) {
+                        asmGroupMap[asmKey] = { region: regName, asm: asmName, tgtPkg: 0, actPkg: 0, tgtCust: 0, actCustSet: new Set() };
+                    }
+                    let pos = m.position.toUpperCase().trim();
+                    let tPkg = (targetPerPerson[pos] ? targetPerPerson[pos].pkg : 0);
+                    let tCust = (targetPerPerson[pos] ? targetPerPerson[pos].cust : 0);
+                    let aPkg = actualPkgMap[m.surveyor_id] || 0;
+
+                    asmGroupMap[asmKey].tgtPkg += tPkg;
+                    asmGroupMap[asmKey].actPkg += aPkg;
+                    asmGroupMap[asmKey].tgtCust += tCust;
+
+                    surveyData.filter(d => d.surveyor_id === m.surveyor_id).forEach(d => {
+                        if (d.surveyee_id) asmGroupMap[asmKey].actCustSet.add(d.surveyee_id);
+                    });
+                });
+
+                let sortedAsmKeys = Object.keys(asmGroupMap).sort();
+                sortedAsmKeys.forEach(key => {
+                    let group = asmGroupMap[key];
+                    let aCust = group.actCustSet.size;
+                    let pPkg = group.tgtPkg > 0 ? ((group.actPkg / group.tgtPkg) * 100).toFixed(1) : "0.0";
+                    let pCust = group.tgtCust > 0 ? ((aCust / group.tgtCust) * 100).toFixed(1) : "0.0";
+
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td><b>${group.region}</b></td>
+                        <td><b>${group.asm}</b></td>
+                        <td style="text-align: center;">
+                            <b>${fmtNum(group.actPkg)}</b> / ${fmtNum(group.tgtPkg)} <br>
+                            <small style="color: ${group.actPkg >= group.tgtPkg ? '#059669' : '#dc2626'}; font-weight: 600;">(${pPkg}%)</small>
+                        </td>
+                        <td style="text-align: center;">
+                            <b>${fmtNum(aCust)}</b> / ${fmtNum(group.tgtCust)} <br>
+                            <small style="color: ${aCust >= group.tgtCust ? '#059669' : '#dc2626'}; font-weight: 600;">(${pCust}%)</small>
+                        </td>
+                    `;
+                    summaryTbody.appendChild(tr);
+                });
+
+                if (sortedAsmKeys.length === 0) {
+                    summaryTbody.innerHTML = `<tr><td colspan="4" style="text-align: center; color: #64748b; font-style: italic;">Tidak ada data ASM yang sesuai filter.</td></tr>`;
+                }
             }
 
             // --- 2. RENDER TABEL UTAMA DETAIL SURVEYOR ---
@@ -1450,7 +1543,7 @@ if semua_data_gabungan:
                     git_path = "git"
 
                 subprocess.run(f'"{git_path}" add .', cwd=BASE_DIR, shell=True, check=True)
-                subprocess.run(f'"{git_path}" commit -m "Add separate ASM summary table above surveyor detail table on {waktu_sekarang}"', cwd=BASE_DIR, shell=True, check=True)
+                subprocess.run(f'"{git_path}" commit -m "Add interactive toggle between Region and ASM summary tables on {waktu_sekarang}"', cwd=BASE_DIR, shell=True, check=True)
                 subprocess.run(f'"{git_path}" push', cwd=BASE_DIR, shell=True, check=True)
                 print("[SUKSES] Perubahan berhasil di-push otomatis ke GitHub! 🎉")
             except subprocess.CalledProcessError as git_err:
