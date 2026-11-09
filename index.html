@@ -50,7 +50,7 @@
         .scard h4 { margin: 0 0 5px 0; font-size: 11px; color: #64748b; text-transform: uppercase; }
         .scard .sval { font-size: 20px; font-weight: bold; color: #0f172a; }
 
-        .table-responsive { background: white; border-radius: 8px; border: 1px solid #cbd5e1; overflow-x: auto; box-shadow: 0 2px 4px rgba(0,0,0,0.02); }
+        .table-responsive { background: white; border-radius: 8px; border: 1px solid #cbd5e1; overflow-x: auto; box-shadow: 0 2px 4px rgba(0,0,0,0.02); margin-bottom: 25px; }
         table { width: 100%; border-collapse: collapse; text-align: left; font-size: 12px; }
         th, td { padding: 10px 12px; border-bottom: 1px solid #e2e8f0; }
         th { background: #f8fafc; font-weight: 600; color: #475569; position: sticky; top: 0; z-index: 10; }
@@ -167,6 +167,26 @@
                     </div>
                 </div>
 
+                <!-- TABEL SUMMARY KHUSUS PER ASM DI ATAS TABEL UTAMA -->
+                <div style="margin-bottom: 8px; font-weight: 600; font-size: 14px; color: #0f172a;" data-i18n="rsmSummaryTitle">📋 Ringkasan Performa Per ASM (Area Sales Manager)</div>
+                <div class="table-responsive">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th data-i18n="thRegion">Region</th>
+                                <th data-i18n="thAsm">ASM</th>
+                                <th style="text-align: center;"><span data-i18n="thDistPkg">Distribusi Sildenafil Package</span><br><small style="font-weight: normal; color: #64748b;" data-i18n="thActualVsTarget">(Aktual vs Target)</small></th>
+                                <th style="text-align: center;"><span data-i18n="thCustPkg">Customer Sildenafil Package</span><br><small style="font-weight: normal; color: #64748b;" data-i18n="thActualVsTarget">(Aktual vs Target)</small></th>
+                            </tr>
+                        </thead>
+                        <tbody id="rsmSummaryTableBody">
+                            <!-- Diisi via JavaScript -->
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- TABEL UTAMA DETAIL SURVEYOR -->
+                <div style="margin-bottom: 8px; font-weight: 600; font-size: 14px; color: #0f172a;" data-i18n="detailTableTitle">📊 Detail Performa Per Surveyor</div>
                 <div class="table-responsive">
                     <table>
                         <thead>
@@ -274,7 +294,9 @@
                 mapOutletListTitle: "Daftar Outlet Terfilter:",
                 mapPopupMapsBtn: "🗺️ Buka Rute ke Google Maps",
                 mapPopupNoPhoto: "Tidak ada foto.",
-                mapPopupPhotoLabel: "Foto"
+                mapPopupPhotoLabel: "Foto",
+                rsmSummaryTitle: "📋 Ringkasan Performa Per ASM (Area Sales Manager)",
+                detailTableTitle: "📊 Detail Performa Per Surveyor"
             },
             en: {
                 mainTitle: "🗺️ Sildenafil Package Dashboard",
@@ -310,7 +332,9 @@
                 mapOutletListTitle: "Filtered Outlet List:",
                 mapPopupMapsBtn: "🗺️ Open Route in Google Maps",
                 mapPopupNoPhoto: "No photos available.",
-                mapPopupPhotoLabel: "Photo"
+                mapPopupPhotoLabel: "Photo",
+                rsmSummaryTitle: "📋 Performance Summary Per ASM (Area Sales Manager)",
+                detailTableTitle: "📊 Detailed Performance Per Surveyor"
             }
         };
 
@@ -533,6 +557,70 @@
                 if (item.surveyee_id) actualCustMap[sid].add(item.surveyee_id);
             });
 
+            // --- 1. RENDER TABEL SUMMARY PER ASM ---
+            const asmGroupMap = {};
+            filteredMasters.forEach(m => {
+                let asmName = m.asm || '-';
+                let regName = m.region || '-';
+                let asmKey = `${regName}___${asmName}`;
+                
+                if (!asmGroupMap[asmKey]) {
+                    asmGroupMap[asmKey] = {
+                        region: regName,
+                        asm: asmName,
+                        tgtPkg: 0,
+                        actPkg: 0,
+                        tgtCust: 0,
+                        actCustSet: new Set()
+                    };
+                }
+
+                let pos = m.position.toUpperCase().trim();
+                let tPkg = (targetPerPerson[pos] ? targetPerPerson[pos].pkg : 0);
+                let tCust = (targetPerPerson[pos] ? targetPerPerson[pos].cust : 0);
+
+                let aPkg = actualPkgMap[m.surveyor_id] || 0;
+                
+                asmGroupMap[asmKey].tgtPkg += tPkg;
+                asmGroupMap[asmKey].actPkg += aPkg;
+                asmGroupMap[asmKey].tgtCust += tCust;
+
+                surveyData.filter(d => d.surveyor_id === m.surveyor_id).forEach(d => {
+                    if (d.surveyee_id) asmGroupMap[asmKey].actCustSet.add(d.surveyee_id);
+                });
+            });
+
+            const rsmTbody = document.getElementById('rsmSummaryTableBody');
+            rsmTbody.innerHTML = '';
+
+            let sortedAsmKeys = Object.keys(asmGroupMap).sort();
+            sortedAsmKeys.forEach(key => {
+                let group = asmGroupMap[key];
+                let aCust = group.actCustSet.size;
+                let pPkg = group.tgtPkg > 0 ? ((group.actPkg / group.tgtPkg) * 100).toFixed(1) : "0.0";
+                let pCust = group.tgtCust > 0 ? ((aCust / group.tgtCust) * 100).toFixed(1) : "0.0";
+
+                const trAsm = document.createElement('tr');
+                trAsm.innerHTML = `
+                    <td><b>${group.region}</b></td>
+                    <td><b>${group.asm}</b></td>
+                    <td style="text-align: center;">
+                        <b>${fmtNum(group.actPkg)}</b> / ${fmtNum(group.tgtPkg)} <br>
+                        <small style="color: ${group.actPkg >= group.tgtPkg ? '#059669' : '#dc2626'}; font-weight: 600;">(${pPkg}%)</small>
+                    </td>
+                    <td style="text-align: center;">
+                        <b>${fmtNum(aCust)}</b> / ${fmtNum(group.tgtCust)} <br>
+                        <small style="color: ${aCust >= group.tgtCust ? '#059669' : '#dc2626'}; font-weight: 600;">(${pCust}%)</small>
+                    </td>
+                `;
+                rsmTbody.appendChild(trAsm);
+            });
+
+            if (sortedAsmKeys.length === 0) {
+                rsmTbody.innerHTML = `<tr><td colspan="4" style="text-align: center; color: #64748b; font-style: italic;">Tidak ada data ASM yang sesuai filter.</td></tr>`;
+            }
+
+            // --- 2. RENDER TABEL UTAMA DETAIL SURVEYOR ---
             const tbody = document.getElementById('summaryTableBody');
             tbody.innerHTML = '';
 
