@@ -837,7 +837,6 @@ if semua_data_gabungan:
                 }
             });
 
-            // Re-populate all dropdowns so their default "ALL" options update correctly to the selected language
             populateTableRegionDropdown();
             populateTableAsmDropdown(document.getElementById('tableRegionFilter').value);
             populateTableSurveyorDropdown(
@@ -1042,7 +1041,6 @@ if semua_data_gabungan:
                 if (item.surveyee_id) actualCustMap[sid].add(item.surveyee_id);
             });
 
-            // --- 1. RENDER TABEL SUMMARY ATAS (TOTAL NASIONAL HANYA MUNCUL JIKA TIDAK ADA FILTER REG/ASM SPESIFIK) ---
             const headRow = document.getElementById('summaryTableHeadRow');
             const summaryTbody = document.getElementById('summaryTableHeaderBody');
             summaryTbody.innerHTML = '';
@@ -1054,7 +1052,6 @@ if semua_data_gabungan:
             const thActualTargetText = translations[currentLang].thActualVsTarget;
             const totalNatText = translations[currentLang].totalNational;
 
-            // Cek apakah sedang memfilter region atau asm tertentu
             const isRegionFiltered = (regVal && regVal !== 'ALL');
             const isAsmFiltered = (asmVal && asmVal !== 'ALL');
 
@@ -1087,14 +1084,12 @@ if semua_data_gabungan:
 
                 let regionList = Object.values(regionGroupMap);
 
-                // Urutkan berdasarkan persentase pencapaian terbesar ke terkecil
                 regionList.sort((a, b) => {
                     let pctA = a.tgtPkg > 0 ? (a.actPkg / a.tgtPkg) : 0;
                     let pctB = b.tgtPkg > 0 ? (b.actPkg / b.tgtPkg) : 0;
                     return pctB - pctA;
                 });
 
-                // Render Baris TOTAL NASIONAL HANYA JIKA TIDAK ADA FILTER REGION ATAU ASM
                 if (!isRegionFiltered && !isAsmFiltered) {
                     let natTgtPkg = 0, natActPkg = 0, natTgtCust = 0;
                     let natActCustSet = new Set();
@@ -1186,14 +1181,12 @@ if semua_data_gabungan:
 
                 let asmList = Object.values(asmGroupMap);
 
-                // Urutkan berdasarkan persentase pencapaian terbesar ke terkecil
                 asmList.sort((a, b) => {
                     let pctA = a.tgtPkg > 0 ? (a.actPkg / a.tgtPkg) : 0;
                     let pctB = b.tgtPkg > 0 ? (b.actPkg / b.tgtPkg) : 0;
                     return pctB - pctA;
                 });
 
-                // Render Baris TOTAL NASIONAL HANYA JIKA TIDAK ADA FILTER REGION ATAU ASM
                 if (!isRegionFiltered && !isAsmFiltered) {
                     let natTgtPkgAsm = 0, natActPkgAsm = 0, natTgtCustAsm = 0;
                     let natActCustSetAsm = new Set();
@@ -1255,7 +1248,6 @@ if semua_data_gabungan:
                 }
             }
 
-            // --- 2. RENDER TABEL UTAMA DETAIL SURVEYOR ---
             const tbody = document.getElementById('summaryTableBody');
             tbody.innerHTML = '';
 
@@ -1613,7 +1605,7 @@ if semua_data_gabungan:
         print(f"10. File Log Detail disimpan di               : '{FILE_LOG}'")
         print(f"11. File Peta HTML (Visualisasi Titik)        : '{FILE_HTML_PETA}'")
         
-        # --- AUTO-PUSH KE GITHUB (AMAN JIKA GIT TIDAK ADA) ---
+        # --- AUTO-PUSH KE GITHUB (AMAN JIKA GIT TIDAK ADA ATAU ADA LOCK) ---
         print("\n-> Sedang melakukan Auto-Sync & Push ke GitHub...")
         if shutil.which("git") is None:
             print("[INFO] Program Git tidak terdeteksi di perangkat ini.")
@@ -1635,12 +1627,24 @@ if semua_data_gabungan:
                 if not os.path.exists(git_path):
                     git_path = "git"
 
-                subprocess.run(f'"{git_path}" add .', cwd=BASE_DIR, shell=True, check=True)
-                subprocess.run(f'"{git_path}" commit -m "Hide national total when region/asm filtered, add star icon and distinct highlight background on {waktu_sekarang}"', cwd=BASE_DIR, shell=True, check=True)
-                subprocess.run(f'"{git_path}" push', cwd=BASE_DIR, shell=True, check=True)
+                # Nonaktifkan auto gc agar tidak memicu penghapusan folder .git/objects/xx saat file sedang terkunci
+                subprocess.run(f'"{git_path}" config gc.auto 0', cwd=BASE_DIR, shell=True, check=False, timeout=15)
+                subprocess.run(f'"{git_path}" add .', cwd=BASE_DIR, shell=True, check=True, timeout=60, input="n\n", text=True)
+                
+                commit_res = subprocess.run(
+                    f'"{git_path}" commit -m "Update dashboard & data on {waktu_sekarang}"',
+                    cwd=BASE_DIR, shell=True, capture_output=True, text=True, timeout=30, input="n\n"
+                )
+                if commit_res.returncode != 0 and "nothing to commit" not in (commit_res.stdout + commit_res.stderr).lower():
+                    raise subprocess.CalledProcessError(commit_res.returncode, commit_res.args, output=commit_res.stdout, stderr=commit_res.stderr)
+
+                subprocess.run(f'"{git_path}" push', cwd=BASE_DIR, shell=True, check=True, timeout=120, input="n\n", text=True)
                 print("[SUKSES] Perubahan berhasil di-push otomatis ke GitHub! 🎉")
             except subprocess.CalledProcessError as git_err:
                 print(f"[WARNING] Gagal auto-push ke GitHub: {git_err}")
+                print("[INFO] Tips jika muncul 'Deletion of directory .git/objects/... failed': tutup aplikasi/editor/antivirus yang mengunci folder .git, lalu jalankan 'git gc --prune=now' secara manual.")
+            except subprocess.TimeoutExpired:
+                print("[WARNING] Proses Git melebihi batas waktu (timeout).")
         
     except PermissionError as e:
         print(f"\n[ERROR] Gagal menyimpan file karena sedang dibuka di Microsoft Excel! ({e})")

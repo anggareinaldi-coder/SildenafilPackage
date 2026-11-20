@@ -388,7 +388,6 @@
                 }
             });
 
-            // Re-populate all dropdowns so their default "ALL" options update correctly to the selected language
             populateTableRegionDropdown();
             populateTableAsmDropdown(document.getElementById('tableRegionFilter').value);
             populateTableSurveyorDropdown(
@@ -593,7 +592,6 @@
                 if (item.surveyee_id) actualCustMap[sid].add(item.surveyee_id);
             });
 
-            // --- 1. RENDER TABEL SUMMARY ATAS (TOTAL NASIONAL HANYA MUNCUL JIKA TIDAK ADA FILTER REG/ASM SPESIFIK) ---
             const headRow = document.getElementById('summaryTableHeadRow');
             const summaryTbody = document.getElementById('summaryTableHeaderBody');
             summaryTbody.innerHTML = '';
@@ -605,7 +603,6 @@
             const thActualTargetText = translations[currentLang].thActualVsTarget;
             const totalNatText = translations[currentLang].totalNational;
 
-            // Cek apakah sedang memfilter region atau asm tertentu
             const isRegionFiltered = (regVal && regVal !== 'ALL');
             const isAsmFiltered = (asmVal && asmVal !== 'ALL');
 
@@ -638,14 +635,12 @@
 
                 let regionList = Object.values(regionGroupMap);
 
-                // Urutkan berdasarkan persentase pencapaian terbesar ke terkecil
                 regionList.sort((a, b) => {
                     let pctA = a.tgtPkg > 0 ? (a.actPkg / a.tgtPkg) : 0;
                     let pctB = b.tgtPkg > 0 ? (b.actPkg / b.tgtPkg) : 0;
                     return pctB - pctA;
                 });
 
-                // Render Baris TOTAL NASIONAL HANYA JIKA TIDAK ADA FILTER REGION ATAU ASM
                 if (!isRegionFiltered && !isAsmFiltered) {
                     let natTgtPkg = 0, natActPkg = 0, natTgtCust = 0;
                     let natActCustSet = new Set();
@@ -737,14 +732,12 @@
 
                 let asmList = Object.values(asmGroupMap);
 
-                // Urutkan berdasarkan persentase pencapaian terbesar ke terkecil
                 asmList.sort((a, b) => {
                     let pctA = a.tgtPkg > 0 ? (a.actPkg / a.tgtPkg) : 0;
                     let pctB = b.tgtPkg > 0 ? (b.actPkg / b.tgtPkg) : 0;
                     return pctB - pctA;
                 });
 
-                // Render Baris TOTAL NASIONAL HANYA JIKA TIDAK ADA FILTER REGION ATAU ASM
                 if (!isRegionFiltered && !isAsmFiltered) {
                     let natTgtPkgAsm = 0, natActPkgAsm = 0, natTgtCustAsm = 0;
                     let natActCustSetAsm = new Set();
@@ -806,7 +799,6 @@
                 }
             }
 
-            // --- 2. RENDER TABEL UTAMA DETAIL SURVEYOR ---
             const tbody = document.getElementById('summaryTableBody');
             tbody.innerHTML = '';
 
