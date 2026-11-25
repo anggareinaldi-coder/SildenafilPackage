@@ -48,7 +48,7 @@ if os.path.exists(logo_100_path):
         print(f"[WARNING] Gagal membaca logo 100 mg: {e}")
 
 if not os.path.exists(FILE_MAPPING):
-    df_template = pd.DataFrame(columns=["Surveyor ID", "Sales Name", "Position", "Region", "ASM", "Status"])
+    df_template = pd.DataFrame(columns=["Surveyor ID", "Sales Name", "Position", "Region", "ASM", "STATUS"])
     df_template.to_excel(FILE_MAPPING, index=False)
     print(f"[INFO] File '{os.path.basename(FILE_MAPPING)}' baru saja dibuat.")
     print("-> Silakan isi data Surveyor kamu di file Excel tersebut dahulu, lalu jalankan ulang script ini.")
@@ -57,12 +57,19 @@ if not os.path.exists(FILE_MAPPING):
 print("-> Memuat data master dari Excel mapping...")
 df_mapping_excel = pd.read_excel(FILE_MAPPING)
 
+# Cari nama kolom Status secara case-insensitive (misal: STATUS, Status, status)
+status_col_name = None
+for col in df_mapping_excel.columns:
+    if str(col).strip().lower() == "status":
+        status_col_name = col
+        break
+
 MASTER_SURVEYOR = {}
 for idx, row in df_mapping_excel.iterrows():
     if pd.isna(row["Surveyor ID"]):
         continue
     sid = str(row["Surveyor ID"]).strip()
-    raw_status = str(row["Status"]).strip() if ("Status" in df_mapping_excel.columns and not pd.isna(row["Status"])) else "Active"
+    raw_status = str(row[status_col_name]).strip() if (status_col_name and not pd.isna(row[status_col_name])) else "Active"
     norm_status = "Inactive" if raw_status.lower() == "inactive" else "Active"
     MASTER_SURVEYOR[sid] = {
         "Sales Name": str(row["Sales Name"]).strip() if not pd.isna(row["Sales Name"]) else "Unknown",
@@ -522,14 +529,15 @@ if semua_data_gabungan:
         th { background: #f8fafc; font-weight: 600; color: #475569; position: sticky; top: 0; z-index: 10; }
         tr:hover { background: #f8fafc; }
         .total-row { background: #fefce8 !important; font-weight: bold; border-top: 2px solid #fde047; border-bottom: 2px solid #fde047; }
-        .badge { padding: 3px 8px; border-radius: 4px; font-size: 10px; font-weight: 600; }
+        .badge { padding: 3px 8px; border-radius: 4px; font-size: 10px; font-weight: 600; display: inline-block; }
         .badge-sbd { background: #dbeafe; color: #1e40af; }
         .badge-msd { background: #fef3c7; color: #92400e; }
         .badge-asm { background: #d1fae5; color: #065f46; }
         .badge-tss { background: #fae8ff; color: #86198f; }
 
-        .surveyor-name-active { color: #059669; font-weight: 700; cursor: help; }
-        .surveyor-name-inactive { color: #dc2626; font-weight: 700; cursor: help; }
+        /* Label Status persis gaya badge Role: hijau Active, merah Inactive */
+        .status-badge-active { background: #dcfce7; color: #15803d; padding: 3px 8px; border-radius: 4px; font-size: 10px; font-weight: 600; margin-left: 6px; display: inline-block; cursor: help; }
+        .status-badge-inactive { background: #fee2e2; color: #b91c1c; padding: 3px 8px; border-radius: 4px; font-size: 10px; font-weight: 600; margin-left: 6px; display: inline-block; cursor: help; }
 
         /* Map View Styles */
         .map-layout { display: flex; height: 100%; width: 100%; position: relative; }
@@ -734,7 +742,7 @@ if semua_data_gabungan:
         const masterStatusById = {};
         const masterStatusByName = {};
         masterSurveyor.forEach(m => {
-            const st = (m.status || 'Active').toLowerCase() === 'inactive' ? 'Inactive' : 'Active';
+            const st = String(m.status || 'Active').trim().toLowerCase() === 'inactive' ? 'Inactive' : 'Active';
             if (m.surveyor_id) masterStatusById[String(m.surveyor_id).trim()] = st;
             if (m.surveyor) masterStatusByName[String(m.surveyor).trim()] = st;
         });
@@ -767,12 +775,12 @@ if semua_data_gabungan:
                 .replace(/>/g, '&gt;');
         }
 
+        // Nama surveyor tetap normal; hanya bagian (Active) / (Inactive) yang jadi label badge
         function renderSurveyorLabelHtml(name, role, status) {
-            const safeName = name || 'Unknown';
-            const labelText = `${safeName} (${status})`;
-            const tooltipText = formatSurveyorTooltip(role, status);
-            const cls = status === 'Inactive' ? 'surveyor-name-inactive' : 'surveyor-name-active';
-            return `<span class="${cls}" title="${escapeAttr(tooltipText)}">${escapeAttr(labelText)}</span>`;
+            const safeName = escapeAttr(name || 'Unknown');
+            const tooltipText = escapeAttr(formatSurveyorTooltip(role, status));
+            const badgeClass = status === 'Inactive' ? 'status-badge-inactive' : 'status-badge-active';
+            return `<b>${safeName}</b><span class="${badgeClass}" title="${tooltipText}">(${status})</span>`;
         }
 
         // --- Multi-Language Dictionary ---
