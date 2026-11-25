@@ -85,12 +85,65 @@
         .outlet-item.active { border-color: #2563eb; background-color: #dbeafe; }
         .outlet-name { font-weight: 600; font-size: 12px; color: #0f172a; margin-bottom: 2px; }
         .outlet-info { font-size: 11px; color: #64748b; display: flex; justify-content: space-between; }
-        #map { flex: 1; height: 100%; width: 100%; z-index: 1; }
+        .map-canvas-wrap { position: relative; flex: 1; height: 100%; width: 100%; }
+        #map { height: 100%; width: 100%; z-index: 1; }
+
+        /* Map Loading Overlay Bar */
+        .map-loading-overlay {
+            position: absolute;
+            inset: 0;
+            background: rgba(241, 245, 249, 0.88);
+            backdrop-filter: blur(2px);
+            z-index: 2000;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        .map-loading-overlay.active {
+            display: flex;
+        }
+        .map-loading-box {
+            background: #ffffff;
+            border: 1px solid #cbd5e1;
+            border-radius: 10px;
+            padding: 18px 22px;
+            width: 100%;
+            max-width: 380px;
+            box-shadow: 0 10px 25px rgba(15, 23, 42, 0.12);
+        }
+        .map-loading-title {
+            font-size: 13px;
+            font-weight: 700;
+            color: #0f172a;
+            margin-bottom: 6px;
+        }
+        .map-loading-sub {
+            font-size: 11px;
+            color: #64748b;
+            margin-bottom: 10px;
+            display: flex;
+            justify-content: space-between;
+        }
+        .progress-track {
+            width: 100%;
+            height: 10px;
+            background: #e2e8f0;
+            border-radius: 999px;
+            overflow: hidden;
+        }
+        .progress-fill {
+            width: 0%;
+            height: 100%;
+            background: linear-gradient(90deg, #2563eb, #0ea5e9);
+            border-radius: 999px;
+            transition: width 0.12s ease-out;
+        }
 
         @media (max-width: 768px) {
             .map-layout { flex-direction: column-reverse; }
             .sidebar { width: 100%; height: 45%; max-height: 250px; }
-            #map { height: 55% !important; }
+            .map-canvas-wrap { height: 55% !important; width: 100%; }
         }
         ::-webkit-scrollbar { width: 5px; height: 5px; }
         ::-webkit-scrollbar-track { background: #f1f5f9; }
@@ -263,7 +316,21 @@
                     <div style="font-size: 11px; font-weight: 600; color: #64748b;" data-i18n="mapOutletListTitle">Daftar Outlet Terfilter:</div>
                     <div id="outletListContainer" class="outlet-list"></div>
                 </div>
-                <div id="map"></div>
+                <div class="map-canvas-wrap">
+                    <div id="mapLoadingOverlay" class="map-loading-overlay">
+                        <div class="map-loading-box">
+                            <div id="mapLoadingTitle" class="map-loading-title" data-i18n="loadingPointsTitle">Memproses titik sebaran distribusi...</div>
+                            <div class="map-loading-sub">
+                                <span id="mapLoadingDetail">0 / 0 titik</span>
+                                <span id="mapLoadingPct">0%</span>
+                            </div>
+                            <div class="progress-track">
+                                <div id="mapLoadingBar" class="progress-fill"></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div id="map"></div>
+                </div>
             </div>
         </div>
     </div>
@@ -359,7 +426,8 @@
                 detailTableTitle: "📊 Detail Performa Per Surveyor",
                 toggleRegion: "Region (RSM)",
                 toggleAsm: "ASM",
-                totalNational: "TOTAL NASIONAL"
+                totalNational: "TOTAL NASIONAL",
+                loadingPointsTitle: "Memproses titik sebaran distribusi..."
             },
             en: {
                 mainTitle: "🗺️ Sildenafil Package Dashboard",
@@ -401,7 +469,8 @@
                 detailTableTitle: "📊 Detailed Performance Per Surveyor",
                 toggleRegion: "Region (RSM)",
                 toggleAsm: "ASM",
-                totalNational: "NATIONAL TOTAL"
+                totalNational: "NATIONAL TOTAL",
+                loadingPointsTitle: "Processing distribution points..."
             }
         };
 
@@ -472,6 +541,7 @@
 
         let surveyorColorMap = {};
         let map, markersLayer;
+        let mapRenderToken = 0;
 
         function switchView(viewName) {
             document.getElementById('viewTable').classList.remove('active');
@@ -1051,7 +1121,29 @@
             renderMapDashboard('ALL', 'ALL', 'ALL', 'ALL');
         }
 
+        function setMapLoadingProgress(processed, total) {
+            const overlay = document.getElementById('mapLoadingOverlay');
+            const bar = document.getElementById('mapLoadingBar');
+            const detail = document.getElementById('mapLoadingDetail');
+            const pctEl = document.getElementById('mapLoadingPct');
+            const titleEl = document.getElementById('mapLoadingTitle');
+
+            if (!overlay) return;
+            titleEl.textContent = translations[currentLang].loadingPointsTitle;
+            const pct = total > 0 ? Math.min(100, Math.round((processed / total) * 100)) : 100;
+            bar.style.width = `${pct}%`;
+            detail.textContent = `${fmtNum(processed)} / ${fmtNum(total)} ${currentLang === 'en' ? 'points' : 'titik'}`;
+            pctEl.textContent = `${pct}%`;
+            overlay.classList.add('active');
+        }
+
+        function hideMapLoadingOverlay() {
+            const overlay = document.getElementById('mapLoadingOverlay');
+            if (overlay) overlay.classList.remove('active');
+        }
+
         function renderMapDashboard(reg, asm, srv, out) {
+            const currentToken = ++mapRenderToken;
             const listContainer = document.getElementById('outletListContainer');
             listContainer.innerHTML = '';
             markersLayer.clearLayers();
@@ -1064,16 +1156,39 @@
             
             document.getElementById('mapTotalStat').innerText = filteredData.length;
 
-            let bounds = [];
-            filteredData.forEach((item) => {
-                if (item.lat !== null && item.lon !== null) {
+            const validPoints = filteredData.filter(item => item.lat !== null && item.lon !== null);
+            const totalPoints = validPoints.length;
+
+            if (totalPoints === 0) {
+                hideMapLoadingOverlay();
+                setTimeout(() => { map.invalidateSize(); }, 150);
+                return;
+            }
+
+            setMapLoadingProgress(0, totalPoints);
+
+            const bounds = [];
+            const chunkSize = 80;
+            let idx = 0;
+
+            function processNextChunk() {
+                if (currentToken !== mapRenderToken) return;
+
+                const end = Math.min(idx + chunkSize, totalPoints);
+                const listFrag = document.createDocumentFragment();
+                const batchMarkers = [];
+
+                for (; idx < end; idx++) {
+                    const item = validPoints[idx];
                     bounds.push([item.lat, item.lon]);
                     const st = resolveStatus(item.status, item.surveyor_id, item.surveyor);
+
                     const itemDiv = document.createElement('div');
                     itemDiv.className = 'outlet-item';
                     itemDiv.innerHTML = `<div class="outlet-name">${item.surveyee}</div><div class="outlet-info"><span>ID: ${item.surveyee_id}</span><span style="color: #2563eb; font-weight: 600;">Qty: ${fmtNum(item.qty)}</span></div><div style="font-size: 10px; color: #64748b; margin-top: 2px;">${renderSurveyorLabelHtml(item.surveyor, item.position, st)}</div><div style="font-size: 10px; color: #94a3b8; margin-top: 2px;">📍 ${item.lat}, ${item.lon}</div>`;
                     
-                    let marker = createLeafletMarker(item);
+                    const marker = buildLeafletMarker(item);
+                    batchMarkers.push(marker);
 
                     itemDiv.onclick = function() {
                         document.querySelectorAll('.outlet-item').forEach(el => el.classList.remove('active'));
@@ -1081,17 +1196,31 @@
                         map.setView([item.lat, item.lon], 16);
                         marker.openPopup();
                     };
-                    listContainer.appendChild(itemDiv);
+                    listFrag.appendChild(itemDiv);
                 }
-            });
 
-            if (bounds.length > 0) {
-                map.fitBounds(bounds, { padding: [30, 30], maxZoom: 15 });
+                listContainer.appendChild(listFrag);
+                batchMarkers.forEach(m => markersLayer.addLayer(m));
+                setMapLoadingProgress(idx, totalPoints);
+
+                if (idx < totalPoints) {
+                    setTimeout(processNextChunk, 0);
+                } else {
+                    if (bounds.length > 0) {
+                        map.fitBounds(bounds, { padding: [30, 30], maxZoom: 15 });
+                    }
+                    setTimeout(() => {
+                        if (currentToken !== mapRenderToken) return;
+                        map.invalidateSize();
+                        hideMapLoadingOverlay();
+                    }, 120);
+                }
             }
-            setTimeout(() => { map.invalidateSize(); }, 200);
+
+            requestAnimationFrame(processNextChunk);
         }
 
-        function createLeafletMarker(item) {
+        function buildLeafletMarker(item) {
             const color = surveyorColorMap[item.surveyor] || '#2563eb';
             const customIcon = L.divIcon({ className: 'custom-div-icon', html: `<div style="background-color: ${color}; width: 14px; height: 14px; border-radius: 50%; border: 2px solid white; box-shadow: 0 0 6px rgba(0,0,0,0.4);"></div>`, iconSize: [14, 14], iconAnchor: [7, 7] });
             const st = resolveStatus(item.status, item.surveyor_id, item.surveyor);
@@ -1111,9 +1240,7 @@
             
             const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${item.lat},${item.lon}`;
             const popupContent = `<b>${item.surveyee}</b><br>ID: <b>${item.surveyee_id}</b><br><hr style="margin: 4px 0;"><small>Surveyor: ${surveyorDisplay}<br>Region/ASM: ${item.region} / ${item.asm}<br><b>Latitude, Longitude:</b> ${item.lat}, ${item.lon}<br><b>Qty:</b> ${fmtNum(item.qty)}<br><b>Timestamp:</b> ${item.timestamp}</small><div style="margin-top: 6px;"><a href="${mapsUrl}" target="_blank" style="display: inline-block; padding: 4px 8px; background: #2563eb; color: white; text-decoration: none; border-radius: 4px; font-size: 11px; font-weight: 600;">${t.mapPopupMapsBtn}</a></div>${fotoHtml}`;
-            const marker = L.marker([item.lat, item.lon], { icon: customIcon }).bindPopup(popupContent);
-            markersLayer.addLayer(marker);
-            return marker;
+            return L.marker([item.lat, item.lon], { icon: customIcon }).bindPopup(popupContent);
         }
 
         function downloadFilteredExcel() {
