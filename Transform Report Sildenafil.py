@@ -48,7 +48,7 @@ if os.path.exists(logo_100_path):
         print(f"[WARNING] Gagal membaca logo 100 mg: {e}")
 
 if not os.path.exists(FILE_MAPPING):
-    df_template = pd.DataFrame(columns=["Surveyor ID", "Sales Name", "Position", "Region", "ASM"])
+    df_template = pd.DataFrame(columns=["Surveyor ID", "Sales Name", "Position", "Region", "ASM", "Status"])
     df_template.to_excel(FILE_MAPPING, index=False)
     print(f"[INFO] File '{os.path.basename(FILE_MAPPING)}' baru saja dibuat.")
     print("-> Silakan isi data Surveyor kamu di file Excel tersebut dahulu, lalu jalankan ulang script ini.")
@@ -62,11 +62,14 @@ for idx, row in df_mapping_excel.iterrows():
     if pd.isna(row["Surveyor ID"]):
         continue
     sid = str(row["Surveyor ID"]).strip()
+    raw_status = str(row["Status"]).strip() if ("Status" in df_mapping_excel.columns and not pd.isna(row["Status"])) else "Active"
+    norm_status = "Inactive" if raw_status.lower() == "inactive" else "Active"
     MASTER_SURVEYOR[sid] = {
         "Sales Name": str(row["Sales Name"]).strip() if not pd.isna(row["Sales Name"]) else "Unknown",
         "Position": str(row["Position"]).strip() if not pd.isna(row["Position"]) else "-",
         "Region": str(row["Region"]).strip() if not pd.isna(row["Region"]) else "-",
-        "ASM": str(row["ASM"]).strip() if not pd.isna(row["ASM"]) else "-"
+        "ASM": str(row["ASM"]).strip() if not pd.isna(row["ASM"]) else "-",
+        "Status": norm_status
     }
 
 files_in_source = [f for f in os.listdir(DIR_SOURCE) if f.endswith('.xlsx') and not f.startswith('~$')]
@@ -322,6 +325,7 @@ for k, v in outlet_aggregated_data.items():
     reg = MASTER_SURVEYOR.get(sid, {}).get("Region", "-")
     asm = MASTER_SURVEYOR.get(sid, {}).get("ASM", "-")
     pos = MASTER_SURVEYOR.get(sid, {}).get("Position", "-")
+    st = MASTER_SURVEYOR.get(sid, {}).get("Status", "Active")
 
     list_data_peta.append({
         "lat": v["lat"],
@@ -334,6 +338,7 @@ for k, v in outlet_aggregated_data.items():
         "region": reg,
         "asm": asm,
         "position": pos,
+        "status": st,
         "qty": v["qty_numeric"],
         "foto_list": v["foto_list"]
     })
@@ -373,6 +378,7 @@ if semua_data_gabungan:
     list_position = []
     list_region = []
     list_asm = []
+    list_status = []
 
     for idx, row in df_clean.iterrows():
         sid = str(row['Surveyor ID']).strip() if 'Surveyor ID' in df_clean.columns else ""
@@ -380,14 +386,17 @@ if semua_data_gabungan:
             list_position.append(MASTER_SURVEYOR[sid]["Position"])
             list_region.append(MASTER_SURVEYOR[sid]["Region"])
             list_asm.append(MASTER_SURVEYOR[sid]["ASM"])
+            list_status.append(MASTER_SURVEYOR[sid]["Status"])
         else:
             list_position.append("-")
             list_region.append("-")
             list_asm.append("-")
+            list_status.append("Active")
 
     df_clean["Position"] = list_position
     df_clean["Region"] = list_region
     df_clean["ASM"] = list_asm
+    df_clean["Status"] = list_status
 
     path_excel_output = os.path.join(DIR_OUTPUT, "all_data_combined_clean.xlsx")
     
@@ -403,7 +412,8 @@ if semua_data_gabungan:
                 "surveyor": info["Sales Name"],
                 "position": info["Position"],
                 "region": info["Region"],
-                "asm": info["ASM"]
+                "asm": info["ASM"],
+                "status": info["Status"]
             })
 
         latest_dt = None
@@ -457,7 +467,7 @@ if semua_data_gabungan:
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     <style>
-        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+- { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
         html, body { height: 100%; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f1f5f9; color: #1e293b; }
         
         /* Navigation / Header */
@@ -517,6 +527,9 @@ if semua_data_gabungan:
         .badge-msd { background: #fef3c7; color: #92400e; }
         .badge-asm { background: #d1fae5; color: #065f46; }
         .badge-tss { background: #fae8ff; color: #86198f; }
+
+        .surveyor-name-active { color: #059669; font-weight: 700; cursor: help; }
+        .surveyor-name-inactive { color: #dc2626; font-weight: 700; cursor: help; }
 
         /* Map View Styles */
         .map-layout { display: flex; height: 100%; width: 100%; position: relative; }
@@ -717,6 +730,50 @@ if semua_data_gabungan:
         const rawPayload = __PAYLOAD_JSON_PLACEHOLDER__;
         const surveyData = rawPayload.surveyData || [];
         const masterSurveyor = rawPayload.masterSurveyor || [];
+
+        const masterStatusById = {};
+        const masterStatusByName = {};
+        masterSurveyor.forEach(m => {
+            const st = (m.status || 'Active').toLowerCase() === 'inactive' ? 'Inactive' : 'Active';
+            if (m.surveyor_id) masterStatusById[String(m.surveyor_id).trim()] = st;
+            if (m.surveyor) masterStatusByName[String(m.surveyor).trim()] = st;
+        });
+
+        function resolveStatus(statusVal, surveyorId, surveyorName) {
+            if (statusVal && String(statusVal).trim() !== '') {
+                return String(statusVal).trim().toLowerCase() === 'inactive' ? 'Inactive' : 'Active';
+            }
+            const sid = surveyorId ? String(surveyorId).trim() : '';
+            if (sid && masterStatusById[sid]) return masterStatusById[sid];
+            const sname = surveyorName ? String(surveyorName).trim() : '';
+            if (sname && masterStatusByName[sname]) return masterStatusByName[sname];
+            return 'Active';
+        }
+
+        function formatSurveyorTooltip(role, status) {
+            const r = role || '-';
+            if (status === 'Inactive') {
+                return `${r} status Inactive - Vacant`;
+            }
+            return `${r} status Active`;
+        }
+
+        function escapeAttr(str) {
+            return String(str || '')
+                .replace(/&/g, '&amp;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;');
+        }
+
+        function renderSurveyorLabelHtml(name, role, status) {
+            const safeName = name || 'Unknown';
+            const labelText = `${safeName} (${status})`;
+            const tooltipText = formatSurveyorTooltip(role, status);
+            const cls = status === 'Inactive' ? 'surveyor-name-inactive' : 'surveyor-name-active';
+            return `<span class="${cls}" title="${escapeAttr(tooltipText)}">${escapeAttr(labelText)}</span>`;
+        }
 
         // --- Multi-Language Dictionary ---
         const translations = {
@@ -959,8 +1016,10 @@ if semua_data_gabungan:
 
             const surveyors = [...new Set(subset.map(m => m.surveyor))].filter(s => s && s !== '-').sort();
             surveyors.forEach(s => {
+                const st = resolveStatus(null, null, s);
                 const opt = document.createElement('option');
-                opt.value = s; opt.textContent = s;
+                opt.value = s;
+                opt.textContent = `${s} (${st})`;
                 srvSelect.appendChild(opt);
             });
             srvSelect.value = surveyors.includes(currentVal) ? currentVal : 'ALL';
@@ -1258,6 +1317,7 @@ if semua_data_gabungan:
 
             filteredMasters.forEach(m => {
                 let pos = m.position.toUpperCase().trim();
+                let st = resolveStatus(m.status, m.surveyor_id, m.surveyor);
                 let tPkg = (targetPerPerson[pos] ? targetPerPerson[pos].pkg : 0);
                 let tCust = (targetPerPerson[pos] ? targetPerPerson[pos].cust : 0);
 
@@ -1286,7 +1346,7 @@ if semua_data_gabungan:
                     <td>${m.region}</td>
                     <td>${m.asm}</td>
                     <td><span class="badge ${badgeClass}">${m.position}</span></td>
-                    <td><b>${m.surveyor}</b></td>
+                    <td>${renderSurveyorLabelHtml(m.surveyor, m.position, st)}</td>
                     <td style="text-align: center;">
                         <b>${fmtNum(aPkg)}</b> / ${fmtNum(tPkg)} <br>
                         <small style="color: ${aPkg >= tPkg ? '#059669' : '#dc2626'}; font-weight: 600;">(${pPkg}%)</small>
@@ -1351,8 +1411,10 @@ if semua_data_gabungan:
             const surveyors = [...new Set(dataList.map(item => item.surveyor))].sort();
             surveyors.forEach(s => {
                 if(s && s !== '-') {
+                    const st = resolveStatus(null, null, s);
                     const opt = document.createElement('option');
-                    opt.value = s; opt.textContent = s;
+                    opt.value = s;
+                    opt.textContent = `${s} (${st})`;
                     select.appendChild(opt);
                 }
             });
@@ -1464,9 +1526,10 @@ if semua_data_gabungan:
             filteredData.forEach((item) => {
                 if (item.lat !== null && item.lon !== null) {
                     bounds.push([item.lat, item.lon]);
+                    const st = resolveStatus(item.status, item.surveyor_id, item.surveyor);
                     const itemDiv = document.createElement('div');
                     itemDiv.className = 'outlet-item';
-                    itemDiv.innerHTML = `<div class="outlet-name">${item.surveyee}</div><div class="outlet-info"><span>ID: ${item.surveyee_id}</span><span style="color: #2563eb; font-weight: 600;">Qty: ${fmtNum(item.qty)}</span></div><div style="font-size: 10px; color: #94a3b8; margin-top: 2px;">📍 ${item.lat}, ${item.lon}</div>`;
+                    itemDiv.innerHTML = `<div class="outlet-name">${item.surveyee}</div><div class="outlet-info"><span>ID: ${item.surveyee_id}</span><span style="color: #2563eb; font-weight: 600;">Qty: ${fmtNum(item.qty)}</span></div><div style="font-size: 10px; color: #64748b; margin-top: 2px;">${renderSurveyorLabelHtml(item.surveyor, item.position, st)}</div><div style="font-size: 10px; color: #94a3b8; margin-top: 2px;">📍 ${item.lat}, ${item.lon}</div>`;
                     
                     let marker = createLeafletMarker(item);
 
@@ -1489,6 +1552,8 @@ if semua_data_gabungan:
         function createLeafletMarker(item) {
             const color = surveyorColorMap[item.surveyor] || '#2563eb';
             const customIcon = L.divIcon({ className: 'custom-div-icon', html: `<div style="background-color: ${color}; width: 14px; height: 14px; border-radius: 50%; border: 2px solid white; box-shadow: 0 0 6px rgba(0,0,0,0.4);"></div>`, iconSize: [14, 14], iconAnchor: [7, 7] });
+            const st = resolveStatus(item.status, item.surveyor_id, item.surveyor);
+            const surveyorDisplay = renderSurveyorLabelHtml(item.surveyor, item.position, st);
             
             let fotoHtml = '';
             const t = translations[currentLang];
@@ -1503,7 +1568,7 @@ if semua_data_gabungan:
             }
             
             const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${item.lat},${item.lon}`;
-            const popupContent = `<b>${item.surveyee}</b><br>ID: <b>${item.surveyee_id}</b><br><hr style="margin: 4px 0;"><small>Surveyor: ${item.surveyor}<br>Region/ASM: ${item.region} / ${item.asm}<br><b>Latitude, Longitude:</b> ${item.lat}, ${item.lon}<br><b>Qty:</b> ${fmtNum(item.qty)}<br><b>Timestamp:</b> ${item.timestamp}</small><div style="margin-top: 6px;"><a href="${mapsUrl}" target="_blank" style="display: inline-block; padding: 4px 8px; background: #2563eb; color: white; text-decoration: none; border-radius: 4px; font-size: 11px; font-weight: 600;">${t.mapPopupMapsBtn}</a></div>${fotoHtml}`;
+            const popupContent = `<b>${item.surveyee}</b><br>ID: <b>${item.surveyee_id}</b><br><hr style="margin: 4px 0;"><small>Surveyor: ${surveyorDisplay}<br>Region/ASM: ${item.region} / ${item.asm}<br><b>Latitude, Longitude:</b> ${item.lat}, ${item.lon}<br><b>Qty:</b> ${fmtNum(item.qty)}<br><b>Timestamp:</b> ${item.timestamp}</small><div style="margin-top: 6px;"><a href="${mapsUrl}" target="_blank" style="display: inline-block; padding: 4px 8px; background: #2563eb; color: white; text-decoration: none; border-radius: 4px; font-size: 11px; font-weight: 600;">${t.mapPopupMapsBtn}</a></div>${fotoHtml}`;
             const marker = L.marker([item.lat, item.lon], { icon: customIcon }).bindPopup(popupContent);
             markersLayer.addLayer(marker);
             return marker;
@@ -1528,10 +1593,12 @@ if semua_data_gabungan:
 
             let rowsToExport = exportData.map(item => {
                 let mInfo = masterSurveyor.find(m => m.surveyor_id === item.surveyor_id) || {};
+                let st = resolveStatus(mInfo.status || item.status, item.surveyor_id, item.surveyor);
                 return {
                     "Timestamp": item.timestamp,
                     "Surveyor ID": item.surveyor_id,
-                    "Surveyor Name": item.surveyor,
+                    "Surveyor Name": `${item.surveyor} (${st})`,
+                    "Status": st,
                     "Surveyee ID": item.surveyee_id,
                     "Surveyee Name": item.surveyee,
                     "Position": mInfo.position || "-",
