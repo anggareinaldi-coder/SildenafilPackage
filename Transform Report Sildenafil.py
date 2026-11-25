@@ -468,63 +468,224 @@ if semua_data_gabungan:
 <html lang="id">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Dashboard Sildenafil Package - Performance & GIS Map</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     <style>
-- { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-        html, body { height: 100%; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f1f5f9; color: #1e293b; }
+        *, *::before, *::after { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+        html, body { height: 100%; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f1f5f9; color: #1e293b; overflow-x: hidden; }
         
         /* Navigation / Header */
-        header { min-height: 70px; background-color: #ffffff; color: #0f172a; padding: 12px 20px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #cbd5e1; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); position: fixed; top: 0; left: 0; right: 0; z-index: 3000; flex-wrap: wrap; gap: 10px; }
-        header h1 { margin: 0; font-size: 15px; font-weight: 600; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-        .header-right { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
-        .nav-buttons { display: flex; gap: 8px; flex-wrap: wrap; }
-        .nav-btn { background: #e2e8f0; color: #334155; border: none; padding: 6px 12px; border-radius: 6px; font-size: 11px; font-weight: 600; cursor: pointer; transition: all 0.2s; white-space: nowrap; }
+        header {
+            min-height: 70px;
+            background-color: #ffffff;
+            color: #0f172a;
+            padding: 10px 18px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid #cbd5e1;
+            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 3000;
+            flex-wrap: wrap;
+            gap: 8px 12px;
+        }
+        header h1 {
+            margin: 0;
+            font-size: clamp(13px, 1.5vw, 16px);
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+        .header-logos {
+            display: inline-flex;
+            gap: 6px;
+            align-items: center;
+            margin-left: 4px;
+            vertical-align: middle;
+        }
+        .header-logos img {
+            height: clamp(38px, 5vw, 56px);
+            width: auto;
+            object-fit: contain;
+            border-radius: 4px;
+        }
+        .header-right {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        .last-update-pill {
+            font-size: 11px;
+            font-weight: normal;
+            color: #64748b;
+            background: #f8fafc;
+            padding: 4px 8px;
+            border: 1px solid #cbd5e1;
+            border-radius: 4px;
+            white-space: nowrap;
+        }
+        .nav-buttons {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+        .nav-btn {
+            background: #e2e8f0;
+            color: #334155;
+            border: none;
+            padding: 7px 12px;
+            border-radius: 6px;
+            font-size: 11px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            white-space: nowrap;
+        }
         .nav-btn.active { background: #2563eb; color: white; }
-        .nav-btn:hover { opacity: 0.9; }
+        .nav-btn:hover { opacity: 0.92; }
 
         /* Lang Switcher Buttons */
         .lang-switch { display: flex; gap: 4px; background: #e2e8f0; padding: 2px; border-radius: 6px; }
         .lang-btn { background: transparent; border: none; padding: 4px 8px; font-size: 10px; font-weight: bold; cursor: pointer; border-radius: 4px; color: #475569; }
         .lang-btn.active { background: #ffffff; color: #2563eb; box-shadow: 0 1px 2px rgba(0,0,0,0.05); }
 
-        /* Views Container */
-        .view-container { margin-top: 75px; height: calc(100vh - 75px); width: 100vw; position: relative; overflow: hidden; }
-
-        @media (max-width: 768px) {
-            header { padding: 10px 12px; flex-direction: column; align-items: flex-start; gap: 8px; }
-            .header-right { width: 100%; justify-content: space-between; }
-            .nav-buttons { width: 100%; justify-content: space-between; }
-            .nav-btn { flex: 1; text-align: center; padding: 8px 6px; font-size: 11px; }
-            .view-container { margin-top: 150px; height: calc(100vh - 150px); }
+        /* Views Container - offset dinamis mengikuti tinggi header aktual */
+        .view-container {
+            --header-offset: 88px;
+            margin-top: var(--header-offset);
+            height: calc(100dvh - var(--header-offset));
+            width: 100%;
+            position: relative;
+            overflow: hidden;
         }
-        .view-page { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: none; background: #f1f5f9; overflow-y: auto; }
+
+        .view-page {
+            position: absolute;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            display: none;
+            background: #f1f5f9;
+            overflow-y: auto;
+            overflow-x: hidden;
+        }
         .view-page.active { display: flex; flex-direction: column; }
 
         /* Summary Table View Styles */
-        .table-content { padding: 20px; max-width: 1400px; margin: 0 auto; width: 100%; }
-        .filter-bar { background: white; padding: 15px; border-radius: 8px; border: 1px solid #cbd5e1; display: flex; gap: 15px; align-items: center; margin-bottom: 20px; flex-wrap: wrap; box-shadow: 0 2px 4px rgba(0,0,0,0.02); }
-        .filter-field { display: flex; flex-direction: column; gap: 4px; flex: 1; min-width: 180px; }
+        .table-content {
+            padding: 18px 16px 28px 16px;
+            max-width: 1400px;
+            margin: 0 auto;
+            width: 100%;
+        }
+        .filter-bar {
+            background: white;
+            padding: 14px;
+            border-radius: 8px;
+            border: 1px solid #cbd5e1;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(175px, 1fr));
+            gap: 12px;
+            align-items: end;
+            margin-bottom: 18px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+        }
+        .filter-field { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
         .filter-field label { font-size: 11px; font-weight: 600; color: #64748b; }
-        .filter-field select { padding: 8px 12px; border-radius: 6px; border: 1px solid #cbd5e1; font-size: 12px; background: #f8fafc; outline: none; }
+        .filter-field select {
+            width: 100%;
+            padding: 8px 10px;
+            border-radius: 6px;
+            border: 1px solid #cbd5e1;
+            font-size: 12px;
+            background: #f8fafc;
+            outline: none;
+        }
+        .filter-actions {
+            display: flex;
+            align-items: stretch;
+            gap: 8px;
+            flex-wrap: wrap;
+            grid-column: 1 / -1;
+        }
+        @media (min-width: 900px) {
+            .filter-actions {
+                grid-column: auto;
+                align-items: flex-end;
+                justify-content: flex-end;
+            }
+        }
+        .btn-reset {
+            padding: 8px 14px;
+            background: #cbd5e1;
+            color: #0f172a;
+            border: none;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            white-space: nowrap;
+        }
+        .btn-excel {
+            padding: 8px 14px;
+            background: #059669;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            white-space: nowrap;
+        }
         
-        .summary-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 15px; margin-bottom: 20px; }
-        .scard { background: white; padding: 15px; border-radius: 8px; border: 1px solid #cbd5e1; box-shadow: 0 2px 4px rgba(0,0,0,0.02); }
-        .scard h4 { margin: 0 0 5px 0; font-size: 11px; color: #64748b; text-transform: uppercase; }
-        .scard .sval { font-size: 20px; font-weight: bold; color: #0f172a; }
+        .summary-cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+            gap: 14px;
+            margin-bottom: 18px;
+        }
+        .scard {
+            background: white;
+            padding: 14px 16px;
+            border-radius: 8px;
+            border: 1px solid #cbd5e1;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+        }
+        .scard h4 { margin: 0 0 6px 0; font-size: 11px; color: #64748b; text-transform: uppercase; line-height: 1.35; }
+        .scard .sval { font-size: clamp(17px, 2vw, 22px); font-weight: bold; color: #0f172a; word-break: break-word; }
 
         /* Toggle Summary Buttons */
         .summary-toggle-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; flex-wrap: wrap; gap: 10px; }
         .summary-title { font-weight: 600; font-size: 14px; color: #0f172a; }
         .toggle-group { display: flex; gap: 6px; background: #e2e8f0; padding: 3px; border-radius: 6px; }
-        .toggle-btn { background: transparent; border: none; padding: 5px 12px; font-size: 11px; font-weight: 600; cursor: pointer; border-radius: 4px; color: #475569; transition: all 0.2s; }
+        .toggle-btn { background: transparent; border: none; padding: 5px 12px; font-size: 11px; font-weight: 600; cursor: pointer; border-radius: 4px; color: #475569; transition: all 0.2s; white-space: nowrap; }
         .toggle-btn.active { background: #2563eb; color: #ffffff; box-shadow: 0 1px 2px rgba(0,0,0,0.05); }
 
-        .table-responsive { background: white; border-radius: 8px; border: 1px solid #cbd5e1; overflow-x: auto; box-shadow: 0 2px 4px rgba(0,0,0,0.02); margin-bottom: 25px; }
-        table { width: 100%; border-collapse: collapse; text-align: left; font-size: 12px; }
+        .table-responsive {
+            background: white;
+            border-radius: 8px;
+            border: 1px solid #cbd5e1;
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+            margin-bottom: 22px;
+        }
+        table { width: 100%; border-collapse: collapse; text-align: left; font-size: 12px; min-width: 520px; }
         th, td { padding: 10px 12px; border-bottom: 1px solid #e2e8f0; }
         th { background: #f8fafc; font-weight: 600; color: #475569; position: sticky; top: 0; z-index: 10; }
         tr:hover { background: #f8fafc; }
@@ -539,19 +700,62 @@ if semua_data_gabungan:
         .status-badge-active { background: #dcfce7; color: #15803d; padding: 3px 8px; border-radius: 4px; font-size: 10px; font-weight: 600; margin-left: 6px; display: inline-block; cursor: help; }
         .status-badge-inactive { background: #fee2e2; color: #b91c1c; padding: 3px 8px; border-radius: 4px; font-size: 10px; font-weight: 600; margin-left: 6px; display: inline-block; cursor: help; }
 
+        .bottom-cta { margin-top: 10px; display: flex; justify-content: flex-end; }
+        .btn-open-map {
+            padding: 10px 18px;
+            background: #2563eb;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-weight: 600;
+            cursor: pointer;
+            font-size: 12px;
+        }
+
         /* Map View Styles */
-        .map-layout { display: flex; height: 100%; width: 100%; position: relative; }
-        .sidebar { width: 380px; background-color: #ffffff; border-right: 1px solid #cbd5e1; display: flex; flex-direction: column; padding: 15px; gap: 10px; z-index: 1000; box-shadow: 4px 0 15px rgba(0,0,0,0.05); overflow-y: auto; }
+        .map-layout { display: flex; height: 100%; width: 100%; position: relative; overflow: hidden; }
+        .sidebar {
+            width: clamp(280px, 28vw, 390px);
+            flex-shrink: 0;
+            background-color: #ffffff;
+            border-right: 1px solid #cbd5e1;
+            display: flex;
+            flex-direction: column;
+            padding: 14px;
+            gap: 10px;
+            z-index: 1000;
+            box-shadow: 4px 0 15px rgba(0,0,0,0.05);
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+        }
         .sidebar-filter { display: flex; flex-direction: column; gap: 3px; }
         .sidebar-filter label { font-size: 11px; font-weight: 600; color: #64748b; }
-        .sidebar-filter select { padding: 7px 10px; border-radius: 6px; border: 1px solid #cbd5e1; background-color: #f8fafc; color: #1e293b; font-size: 12px; outline: none; }
-        .outlet-list { flex: 1; min-height: 150px; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; padding-right: 2px; }
-        .outlet-item { background-color: #f8fafc; border: 1px solid #cbd5e1; padding: 8px 10px; border-radius: 6px; cursor: pointer; transition: all 0.2s ease; }
+        .sidebar-filter select {
+            width: 100%;
+            padding: 7px 10px;
+            border-radius: 6px;
+            border: 1px solid #cbd5e1;
+            background-color: #f8fafc;
+            color: #1e293b;
+            font-size: 12px;
+            outline: none;
+        }
+        .outlet-list {
+            flex: 1;
+            min-height: 120px;
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            padding-right: 2px;
+        }
+        .outlet-item { background-color: #f8fafc; border: 1px solid #cbd5e1; padding: 8px 10px; border-radius: 6px; cursor: pointer; transition: background-color 0.15s ease, border-color 0.15s ease; }
         .outlet-item:hover { border-color: #2563eb; background-color: #eff6ff; }
         .outlet-item.active { border-color: #2563eb; background-color: #dbeafe; }
-        .outlet-name { font-weight: 600; font-size: 12px; color: #0f172a; margin-bottom: 2px; }
-        .outlet-info { font-size: 11px; color: #64748b; display: flex; justify-content: space-between; }
-        .map-canvas-wrap { position: relative; flex: 1; height: 100%; width: 100%; }
+        .outlet-name { font-weight: 600; font-size: 12px; color: #0f172a; margin-bottom: 2px; word-break: break-word; }
+        .outlet-info { font-size: 11px; color: #64748b; display: flex; justify-content: space-between; gap: 6px; }
+        .map-canvas-wrap { position: relative; flex: 1; height: 100%; min-width: 0; min-height: 220px; }
         #map { height: 100%; width: 100%; z-index: 1; }
 
         /* Map Loading Overlay Bar */
@@ -564,53 +768,63 @@ if semua_data_gabungan:
             display: none;
             align-items: center;
             justify-content: center;
-            padding: 20px;
+            padding: 16px;
         }
-        .map-loading-overlay.active {
-            display: flex;
-        }
+        .map-loading-overlay.active { display: flex; }
         .map-loading-box {
             background: #ffffff;
             border: 1px solid #cbd5e1;
             border-radius: 10px;
-            padding: 18px 22px;
+            padding: 16px 20px;
             width: 100%;
-            max-width: 380px;
+            max-width: 360px;
             box-shadow: 0 10px 25px rgba(15, 23, 42, 0.12);
         }
-        .map-loading-title {
-            font-size: 13px;
-            font-weight: 700;
-            color: #0f172a;
-            margin-bottom: 6px;
-        }
-        .map-loading-sub {
-            font-size: 11px;
-            color: #64748b;
-            margin-bottom: 10px;
-            display: flex;
-            justify-content: space-between;
-        }
-        .progress-track {
-            width: 100%;
-            height: 10px;
-            background: #e2e8f0;
-            border-radius: 999px;
-            overflow: hidden;
-        }
-        .progress-fill {
-            width: 0%;
-            height: 100%;
-            background: linear-gradient(90deg, #2563eb, #0ea5e9);
-            border-radius: 999px;
-            transition: width 0.12s ease-out;
+        .map-loading-title { font-size: 13px; font-weight: 700; color: #0f172a; margin-bottom: 6px; }
+        .map-loading-sub { font-size: 11px; color: #64748b; margin-bottom: 10px; display: flex; justify-content: space-between; gap: 8px; }
+        .progress-track { width: 100%; height: 10px; background: #e2e8f0; border-radius: 999px; overflow: hidden; }
+        .progress-fill { width: 0%; height: 100%; background: linear-gradient(90deg, #2563eb, #0ea5e9); border-radius: 999px; transition: width 0.1s ease-out; }
+
+        /* Tablet & Mobile Responsive Breakpoints */
+        @media (max-width: 900px) {
+            .map-layout { flex-direction: column-reverse; }
+            .sidebar {
+                width: 100%;
+                height: 44%;
+                max-height: none;
+                border-right: none;
+                border-top: 1px solid #cbd5e1;
+                padding: 12px;
+                gap: 8px;
+            }
+            .map-canvas-wrap {
+                width: 100%;
+                height: 56%;
+                flex: none;
+            }
         }
 
-        @media (max-width: 768px) {
-            .map-layout { flex-direction: column-reverse; }
-            .sidebar { width: 100%; height: 45%; max-height: 250px; }
-            .map-canvas-wrap { height: 55% !important; width: 100%; }
+        @media (max-width: 640px) {
+            header { padding: 8px 12px; }
+            .header-right { width: 100%; justify-content: space-between; }
+            .last-update-pill { font-size: 10px; padding: 3px 6px; white-space: normal; }
+            .nav-buttons { width: 100%; gap: 6px; }
+            .nav-btn { flex: 1 1 140px; text-align: center; padding: 7px 8px; font-size: 11px; }
+            .table-content { padding: 14px 10px 24px 10px; }
+            .filter-bar { padding: 10px; gap: 10px; grid-template-columns: 1fr; }
+            .filter-actions { flex-direction: column; width: 100%; }
+            .btn-reset, .btn-excel { width: 100%; }
+            .summary-cards { grid-template-columns: 1fr 1fr; gap: 10px; }
+            .scard { padding: 12px; }
+            .bottom-cta { justify-content: stretch; }
+            .btn-open-map { width: 100%; text-align: center; }
+            .sidebar { height: 48%; padding: 10px; }
         }
+
+        @media (max-width: 400px) {
+            .summary-cards { grid-template-columns: 1fr; }
+        }
+
         ::-webkit-scrollbar { width: 5px; height: 5px; }
         ::-webkit-scrollbar-track { background: #f1f5f9; }
         ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
@@ -620,13 +834,13 @@ if semua_data_gabungan:
     <header>
         <h1>
             <span data-i18n="mainTitle">🗺️ Sildenafil Package Dashboard</span>
-            <span style="display: inline-flex; gap: 8px; align-items: center; margin-left: 12px; vertical-align: middle;">
+            <span class="header-logos">
                 __LOGO_50_TAG__
                 __LOGO_100_TAG__
             </span>
         </h1>
         <div class="header-right">
-            <span style="font-size: 11px; font-weight: normal; color: #64748b; background: #f8fafc; padding: 4px 8px; border: 1px solid #cbd5e1; border-radius: 4px;">
+            <span class="last-update-pill">
                 <span data-i18n="lastUpdatedLabel">🕒 Terakhir Diperbarui:</span> <span id="lastUpdateSpan"></span>
             </span>
             <div class="lang-switch">
@@ -673,9 +887,9 @@ if semua_data_gabungan:
                             <option value="ALL" data-i18n="optAllSurveyors">-- Semua Surveyor --</option>
                         </select>
                     </div>
-                    <div style="display: flex; align-items: flex-end; gap: 8px;">
-                        <button onclick="resetTableFilters()" style="padding: 8px 14px; background: #cbd5e1; border: none; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer;" data-i18n="btnResetFilters">Atur Ulang Filter</button>
-                        <button onclick="downloadFilteredExcel()" style="padding: 8px 14px; background: #059669; color: white; border: none; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 6px;" data-i18n="btnDownloadExcel">📥 Unduh Excel Sesuai Filter</button>
+                    <div class="filter-actions">
+                        <button onclick="resetTableFilters()" class="btn-reset" data-i18n="btnResetFilters">Atur Ulang Filter</button>
+                        <button onclick="downloadFilteredExcel()" class="btn-excel" data-i18n="btnDownloadExcel">📥 Unduh Excel Sesuai Filter</button>
                     </div>
                 </div>
 
@@ -738,8 +952,8 @@ if semua_data_gabungan:
                         </tbody>
                     </table>
                 </div>
-                <div style="margin-top: 15px; text-align: right;">
-                    <button onclick="switchView('map')" style="padding: 10px 20px; background: #2563eb; color: white; border: none; border-radius: 6px; font-weight: 600; cursor: pointer; font-size: 13px;" data-i18n="btnOpenMap">Buka Visualisasi Sebaran Titik Distribusi ➡️</button>
+                <div class="bottom-cta">
+                    <button onclick="switchView('map')" class="btn-open-map" data-i18n="btnOpenMap">Buka Visualisasi Sebaran Titik Distribusi ➡️</button>
                 </div>
             </div>
         </div>
@@ -773,7 +987,7 @@ if semua_data_gabungan:
                         </select>
                     </div>
                     <div>
-                        <button onclick="resetMapFilters()" style="width: 100%; padding: 7px 10px; background: #cbd5e1; border: none; border-radius: 6px; font-size: 11px; font-weight: 600; cursor: pointer;" data-i18n="btnResetMapFilters">Atur Ulang Filter Peta</button>
+                        <button onclick="resetMapFilters()" style="width: 100%; padding: 7px 10px; background: #cbd5e1; color: #0f172a; border: none; border-radius: 6px; font-size: 11px; font-weight: 600; cursor: pointer;" data-i18n="btnResetMapFilters">Atur Ulang Filter Peta</button>
                     </div>
                     <div style="background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%); padding: 10px; border-radius: 8px; color: white;">
                         <h3 style="margin: 0 0 2px 0; font-size: 10px; text-transform: uppercase;" data-i18n="mapTotalStatTitle">Total Titik Sebaran Peta</h3>
@@ -805,6 +1019,14 @@ if semua_data_gabungan:
         const rawPayload = __PAYLOAD_JSON_PLACEHOLDER__;
         const surveyData = rawPayload.surveyData || [];
         const masterSurveyor = rawPayload.masterSurveyor || [];
+
+        // Pra-indeks surveyData per surveyor_id agar render tabel tidak melakukan filter berulang
+        const surveyBySurveyorId = {};
+        surveyData.forEach(item => {
+            const sid = item.surveyor_id;
+            if (!surveyBySurveyorId[sid]) surveyBySurveyorId[sid] = [];
+            surveyBySurveyorId[sid].push(item);
+        });
 
         const masterStatusById = {};
         const masterStatusByName = {};
@@ -893,7 +1115,7 @@ if semua_data_gabungan:
                 toggleRegion: "Region (RSM)",
                 toggleAsm: "ASM",
                 totalNational: "TOTAL NASIONAL",
-                loadingPointsTitle: "Memproses titik sebaran distribusi..."
+                loadingPointsTitle: "Memproses seluruh titik sebaran distribusi..."
             },
             en: {
                 mainTitle: "🗺️ Sildenafil Package Dashboard",
@@ -936,12 +1158,24 @@ if semua_data_gabungan:
                 toggleRegion: "Region (RSM)",
                 toggleAsm: "ASM",
                 totalNational: "NATIONAL TOTAL",
-                loadingPointsTitle: "Processing distribution points..."
+                loadingPointsTitle: "Processing all distribution points..."
             }
         };
 
         let currentLang = 'id';
         let currentSummaryMode = 'region'; // 'region' or 'asm'
+
+        function syncHeaderOffset() {
+            const hdr = document.querySelector('header');
+            const container = document.querySelector('.view-container');
+            if (hdr && container) {
+                const h = Math.ceil(hdr.getBoundingClientRect().height) + 8;
+                container.style.setProperty('--header-offset', `${h}px`);
+            }
+            if (map && document.getElementById('viewMap').classList.contains('active')) {
+                setTimeout(() => { if (map) map.invalidateSize(); }, 80);
+            }
+        }
 
         function setSummaryMode(mode) {
             currentSummaryMode = mode;
@@ -979,14 +1213,12 @@ if semua_data_gabungan:
                 document.getElementById('tablePositionFilter').value
             );
 
-            if (map) {
+            renderTableData();
+
+            if (map && document.getElementById('viewMap').classList.contains('active')) {
                 populateMapAsmDropdown(surveyData);
                 populateMapSurveyorDropdown(surveyData);
                 populateMapOutletDropdown(surveyData);
-            }
-
-            renderTableData();
-            if (map) {
                 renderMapDashboard(
                     document.getElementById('mapRegionFilter').value,
                     document.getElementById('mapAsmFilter').value,
@@ -994,6 +1226,7 @@ if semua_data_gabungan:
                     document.getElementById('mapOutletFilter').value
                 );
             }
+            syncHeaderOffset();
         }
 
         const targetPerPerson = {
@@ -1010,6 +1243,10 @@ if semua_data_gabungan:
         let mapRenderToken = 0;
 
         function switchView(viewName) {
+            // Batalkan proses chunked peta yang sedang berjalan agar pindah tab instan
+            mapRenderToken++;
+            hideMapLoadingOverlay();
+
             document.getElementById('viewTable').classList.remove('active');
             document.getElementById('viewMap').classList.remove('active');
             document.getElementById('btnTableView').classList.remove('active');
@@ -1024,10 +1261,16 @@ if semua_data_gabungan:
                 if (!map) {
                     initMap();
                 } else {
-                    setTimeout(() => { map.invalidateSize(); }, 200);
+                    map.invalidateSize();
                 }
-                renderMapDashboard('ALL', 'ALL', 'ALL', 'ALL');
+                renderMapDashboard(
+                    document.getElementById('mapRegionFilter').value,
+                    document.getElementById('mapAsmFilter').value,
+                    document.getElementById('mapSurveyorFilter').value,
+                    document.getElementById('mapOutletFilter').value
+                );
             }
+            syncHeaderOffset();
         }
 
         // --- CASCADING TABLE FILTERS ---
@@ -1214,7 +1457,8 @@ if semua_data_gabungan:
                     regionGroupMap[regName].actPkg += aPkg;
                     regionGroupMap[regName].tgtCust += tCust;
 
-                    surveyData.filter(d => d.surveyor_id === m.surveyor_id).forEach(d => {
+                    const rowsForSid = surveyBySurveyorId[m.surveyor_id] || [];
+                    rowsForSid.forEach(d => {
                         if (d.surveyee_id) regionGroupMap[regName].actCustSet.add(d.surveyee_id);
                     });
                 });
@@ -1234,11 +1478,7 @@ if semua_data_gabungan:
                         natTgtPkg += g.tgtPkg;
                         natActPkg += g.actPkg;
                         natTgtCust += g.tgtCust;
-                        filteredMasters.filter(m => m.region === g.region).forEach(m => {
-                            surveyData.filter(d => d.surveyor_id === m.surveyor_id).forEach(d => {
-                                if (d.surveyee_id) natActCustSet.add(d.surveyee_id);
-                            });
-                        });
+                        g.actCustSet.forEach(cid => natActCustSet.add(cid));
                     });
 
                     let natPctPkg = natTgtPkg > 0 ? ((natActPkg / natTgtPkg) * 100).toFixed(1) : "0.0";
@@ -1261,6 +1501,7 @@ if semua_data_gabungan:
                     summaryTbody.appendChild(trTotal);
                 }
 
+                const regFrag = document.createDocumentFragment();
                 regionList.forEach(group => {
                     let aCust = group.actCustSet.size;
                     let pPkg = group.tgtPkg > 0 ? ((group.actPkg / group.tgtPkg) * 100).toFixed(1) : "0.0";
@@ -1278,8 +1519,9 @@ if semua_data_gabungan:
                             <small style="color: ${aCust >= group.tgtCust ? '#059669' : '#dc2626'}; font-weight: 600;">(${pCust}%)</small>
                         </td>
                     `;
-                    summaryTbody.appendChild(tr);
+                    regFrag.appendChild(tr);
                 });
+                summaryTbody.appendChild(regFrag);
 
                 if (regionList.length === 0) {
                     summaryTbody.innerHTML = `<tr><td colspan="3" style="text-align: center; color: #64748b; font-style: italic;">Tidak ada data Region yang sesuai filter.</td></tr>`;
@@ -1311,7 +1553,8 @@ if semua_data_gabungan:
                     asmGroupMap[asmKey].actPkg += aPkg;
                     asmGroupMap[asmKey].tgtCust += tCust;
 
-                    surveyData.filter(d => d.surveyor_id === m.surveyor_id).forEach(d => {
+                    const rowsForSid = surveyBySurveyorId[m.surveyor_id] || [];
+                    rowsForSid.forEach(d => {
                         if (d.surveyee_id) asmGroupMap[asmKey].actCustSet.add(d.surveyee_id);
                     });
                 });
@@ -1331,11 +1574,7 @@ if semua_data_gabungan:
                         natTgtPkgAsm += g.tgtPkg;
                         natActPkgAsm += g.actPkg;
                         natTgtCustAsm += g.tgtCust;
-                        filteredMasters.filter(m => m.asm === g.asm && m.region === g.region).forEach(m => {
-                            surveyData.filter(d => d.surveyor_id === m.surveyor_id).forEach(d => {
-                                if (d.surveyee_id) natActCustSetAsm.add(d.surveyee_id);
-                            });
-                        });
+                        g.actCustSet.forEach(cid => natActCustSetAsm.add(cid));
                     });
 
                     let natPctPkgAsm = natTgtPkgAsm > 0 ? ((natActPkgAsm / natTgtPkgAsm) * 100).toFixed(1) : "0.0";
@@ -1359,6 +1598,7 @@ if semua_data_gabungan:
                     summaryTbody.appendChild(trTotalAsm);
                 }
 
+                const asmFrag = document.createDocumentFragment();
                 asmList.forEach(group => {
                     let aCust = group.actCustSet.size;
                     let pPkg = group.tgtPkg > 0 ? ((group.actPkg / group.tgtPkg) * 100).toFixed(1) : "0.0";
@@ -1377,8 +1617,9 @@ if semua_data_gabungan:
                             <small style="color: ${aCust >= group.tgtCust ? '#059669' : '#dc2626'}; font-weight: 600;">(${pCust}%)</small>
                         </td>
                     `;
-                    summaryTbody.appendChild(tr);
+                    asmFrag.appendChild(tr);
                 });
+                summaryTbody.appendChild(asmFrag);
 
                 if (asmList.length === 0) {
                     summaryTbody.innerHTML = `<tr><td colspan="4" style="text-align: center; color: #64748b; font-style: italic;">Tidak ada data ASM yang sesuai filter.</td></tr>`;
@@ -1392,6 +1633,7 @@ if semua_data_gabungan:
             let totalActPkg = 0;
             let totalTgtCust = 0;
             let totalActCustSet = new Set();
+            const detailFrag = document.createDocumentFragment();
 
             filteredMasters.forEach(m => {
                 let pos = m.position.toUpperCase().trim();
@@ -1407,9 +1649,7 @@ if semua_data_gabungan:
                 totalActPkg += aPkg;
                 totalTgtCust += tCust;
                 
-                surveyData.filter(d => d.surveyor_id === m.surveyor_id).forEach(d => {
-                    if (d.surveyee_id) totalActCustSet.add(d.surveyee_id);
-                });
+                aCustSet.forEach(cid => totalActCustSet.add(cid));
 
                 let pPkg = tPkg > 0 ? ((aPkg / tPkg) * 100).toFixed(1) : "0.0";
                 let pCust = tCust > 0 ? ((aCust / tCust) * 100).toFixed(1) : "0.0";
@@ -1434,8 +1674,9 @@ if semua_data_gabungan:
                         <small style="color: ${aCust >= tCust ? '#059669' : '#dc2626'}; font-weight: 600;">(${pCust}%)</small>
                     </td>
                 `;
-                tbody.appendChild(tr);
+                detailFrag.appendChild(tr);
             });
+            tbody.appendChild(detailFrag);
 
             let pctPkgOverall = totalTgtPkg > 0 ? ((totalActPkg / totalTgtPkg) * 100).toFixed(1) : "0.0";
             let actualCustCount = totalActCustSet.size;
@@ -1519,7 +1760,8 @@ if semua_data_gabungan:
         }
 
         function initMap() {
-            map = L.map('map', { center: [-2.5489, 118.0149], zoom: 5, tap: true });
+            // preferCanvas: true menggambar semua marker di satu layer canvas agar tetap 100% muncul tanpa berat DOM
+            map = L.map('map', { center: [-2.5489, 118.0149], zoom: 5, tap: true, preferCanvas: true });
             const osmStandard = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '&copy; OpenStreetMap' });
             osmStandard.addTo(map);
             markersLayer = L.layerGroup().addTo(map);
@@ -1622,19 +1864,20 @@ if semua_data_gabungan:
             
             document.getElementById('mapTotalStat').innerText = filteredData.length;
 
+            // Seluruh titik koordinat valid tetap ditampilkan 100%
             const validPoints = filteredData.filter(item => item.lat !== null && item.lon !== null);
             const totalPoints = validPoints.length;
 
             if (totalPoints === 0) {
                 hideMapLoadingOverlay();
-                setTimeout(() => { map.invalidateSize(); }, 150);
+                setTimeout(() => { if (map) map.invalidateSize(); }, 100);
                 return;
             }
 
             setMapLoadingProgress(0, totalPoints);
 
             const bounds = [];
-            const chunkSize = 80;
+            const chunkSize = 200;
             let idx = 0;
 
             function processNextChunk() {
@@ -1660,7 +1903,7 @@ if semua_data_gabungan:
                         document.querySelectorAll('.outlet-item').forEach(el => el.classList.remove('active'));
                         itemDiv.classList.add('active');
                         map.setView([item.lat, item.lon], 16);
-                        marker.openPopup();
+                        marker.fire('click');
                     };
                     listFrag.appendChild(itemDiv);
                 }
@@ -1670,16 +1913,16 @@ if semua_data_gabungan:
                 setMapLoadingProgress(idx, totalPoints);
 
                 if (idx < totalPoints) {
-                    setTimeout(processNextChunk, 0);
+                    requestAnimationFrame(processNextChunk);
                 } else {
-                    if (bounds.length > 0) {
+                    if (bounds.length > 0 && currentToken === mapRenderToken) {
                         map.fitBounds(bounds, { padding: [30, 30], maxZoom: 15 });
                     }
                     setTimeout(() => {
                         if (currentToken !== mapRenderToken) return;
-                        map.invalidateSize();
+                        if (map) map.invalidateSize();
                         hideMapLoadingOverlay();
-                    }, 120);
+                    }, 80);
                 }
             }
 
@@ -1688,25 +1931,41 @@ if semua_data_gabungan:
 
         function buildLeafletMarker(item) {
             const color = surveyorColorMap[item.surveyor] || '#2563eb';
-            const customIcon = L.divIcon({ className: 'custom-div-icon', html: `<div style="background-color: ${color}; width: 14px; height: 14px; border-radius: 50%; border: 2px solid white; box-shadow: 0 0 6px rgba(0,0,0,0.4);"></div>`, iconSize: [14, 14], iconAnchor: [7, 7] });
-            const st = resolveStatus(item.status, item.surveyor_id, item.surveyor);
-            const surveyorDisplay = renderSurveyorLabelHtml(item.surveyor, item.position, st);
-            
-            let fotoHtml = '';
-            const t = translations[currentLang];
-            if (item.foto_list && item.foto_list.length > 0) {
-                fotoHtml = '<div style="margin-top: 6px; text-align: center; max-height: 200px; overflow-y: auto;">';
-                item.foto_list.forEach((fPath, idx) => {
-                    fotoHtml += `<div style="margin-bottom: 4px;"><a href="${fPath}" target="_blank"><img src="${fPath}" width="200" style="border-radius: 4px; border: 1px solid #cbd5e1;"></a><small style="display:block; font-size:9px; color:#64748b;">${t.mapPopupPhotoLabel} ${idx+1}</small></div>`;
-                });
-                fotoHtml += '</div>';
-            } else {
-                fotoHtml = `<div style="margin-top: 6px; color: #64748b; font-style: italic; font-size: 10px;">${t.mapPopupNoPhoto}</div>`;
-            }
-            
-            const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${item.lat},${item.lon}`;
-            const popupContent = `<b>${item.surveyee}</b><br>ID: <b>${item.surveyee_id}</b><br><hr style="margin: 4px 0;"><small>Surveyor: ${surveyorDisplay}<br>Region/ASM: ${item.region} / ${item.asm}<br><b>Latitude, Longitude:</b> ${item.lat}, ${item.lon}<br><b>Qty:</b> ${fmtNum(item.qty)}<br><b>Timestamp:</b> ${item.timestamp}</small><div style="margin-top: 6px;"><a href="${mapsUrl}" target="_blank" style="display: inline-block; padding: 4px 8px; background: #2563eb; color: white; text-decoration: none; border-radius: 4px; font-size: 11px; font-weight: 600;">${t.mapPopupMapsBtn}</a></div>${fotoHtml}`;
-            return L.marker([item.lat, item.lon], { icon: customIcon }).bindPopup(popupContent);
+            const marker = L.circleMarker([item.lat, item.lon], {
+                radius: 6,
+                fillColor: color,
+                color: '#ffffff',
+                weight: 2,
+                opacity: 1,
+                fillOpacity: 0.9
+            });
+
+            // Isi popup dirakit saat marker diklik agar render awal seluruh titik tetap ringan
+            marker.on('click', function() {
+                if (!marker.getPopup()) {
+                    const st = resolveStatus(item.status, item.surveyor_id, item.surveyor);
+                    const surveyorDisplay = renderSurveyorLabelHtml(item.surveyor, item.position, st);
+                    const t = translations[currentLang];
+
+                    let fotoHtml = '';
+                    if (item.foto_list && item.foto_list.length > 0) {
+                        fotoHtml = '<div style="margin-top: 6px; text-align: center; max-height: 200px; overflow-y: auto;">';
+                        item.foto_list.forEach((fPath, idx) => {
+                            fotoHtml += `<div style="margin-bottom: 4px;"><a href="${fPath}" target="_blank"><img src="${fPath}" style="max-width: 100%; width: 200px; height: auto; border-radius: 4px; border: 1px solid #cbd5e1;"></a><small style="display:block; font-size:9px; color:#64748b;">${t.mapPopupPhotoLabel} ${idx+1}</small></div>`;
+                        });
+                        fotoHtml += '</div>';
+                    } else {
+                        fotoHtml = `<div style="margin-top: 6px; color: #64748b; font-style: italic; font-size: 10px;">${t.mapPopupNoPhoto}</div>`;
+                    }
+
+                    const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${item.lat},${item.lon}`;
+                    const popupContent = `<div style="max-width: 240px;"><b>${item.surveyee}</b><br>ID: <b>${item.surveyee_id}</b><hr style="margin: 4px 0;"><small>Surveyor: ${surveyorDisplay}<br>Region/ASM: ${item.region} / ${item.asm}<br><b>Latitude, Longitude:</b> ${item.lat}, ${item.lon}<br><b>Qty:</b> ${fmtNum(item.qty)}<br><b>Timestamp:</b> ${item.timestamp}</small><div style="margin-top: 6px;"><a href="${mapsUrl}" target="_blank" style="display: inline-block; padding: 4px 8px; background: #2563eb; color: white; text-decoration: none; border-radius: 4px; font-size: 11px; font-weight: 600;">${t.mapPopupMapsBtn}</a></div>${fotoHtml}</div>`;
+                    marker.bindPopup(popupContent);
+                }
+                marker.openPopup();
+            });
+
+            return marker;
         }
 
         function downloadFilteredExcel() {
@@ -1777,15 +2036,21 @@ if semua_data_gabungan:
             initTableFilters();
             const luEl = document.getElementById('lastUpdateSpan');
             if (luEl) luEl.innerText = rawPayload.lastUpdate || '-';
+            syncHeaderOffset();
+            window.addEventListener('resize', syncHeaderOffset);
+            if (typeof ResizeObserver !== 'undefined') {
+                const hdr = document.querySelector('header');
+                if (hdr) new ResizeObserver(syncHeaderOffset).observe(hdr);
+            }
         };
     </script>
 </body>
 </html>
 """
 
-        # Inject Logos (height: 60px) & Payload into HTML Template
-        logo_50_tag = f'<img src="data:image/png;base64,{logo_50_base64}" alt="Sildenafil 50 mg" style="height: 60px; vertical-align: middle; object-fit: contain; border-radius: 4px;" />' if logo_50_base64 else ''
-        logo_100_tag = f'<img src="data:image/png;base64,{logo_100_base64}" alt="Sildenafil 100 mg" style="height: 60px; vertical-align: middle; object-fit: contain; border-radius: 4px;" />' if logo_100_base64 else ''
+        # Inject Logos & Payload into HTML Template
+        logo_50_tag = f'<img src="data:image/png;base64,{logo_50_base64}" alt="Sildenafil 50 mg" />' if logo_50_base64 else ''
+        logo_100_tag = f'<img src="data:image/png;base64,{logo_100_base64}" alt="Sildenafil 100 mg" />' if logo_100_base64 else ''
 
         final_html = html_template.replace("__LOGO_50_TAG__", logo_50_tag)
         final_html = final_html.replace("__LOGO_100_TAG__", logo_100_tag)
